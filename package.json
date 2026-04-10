@@ -1,0 +1,53 @@
+{
+  "name": "pi-openai-server-compaction",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Pi extension for OpenAI server-side compaction with Codex-quality continuity.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/algal/pi-openai-server-compaction.git"
+  },
+  "homepage": "https://github.com/algal/pi-openai-server-compaction#readme",
+  "bugs": {
+    "url": "https://github.com/algal/pi-openai-server-compaction/issues"
+  },
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "openai",
+    "responses",
+    "compaction",
+    "codex"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "files": [
+    "src",
+    "tests",
+    "README.md",
+    "ARCHITECTURE.md",
+    "TESTPLAN.md",
+    "VALIDATION.md",
+    "CHANGELOG.md",
+    "LICENSE.md"
+  ],
+  "pi": {
+    "extensions": ["./src/index.ts"]
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*",
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-agent-core": "*"
+  },
+  "scripts": {
+    "smoke": "node --experimental-strip-types ./scripts/smoke.mjs",
+    "test": "npm run smoke",
+    "test:live": "node --experimental-strip-types ./tests/live/openai-compaction-rpc-live.ts"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

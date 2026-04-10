@@ -1,0 +1,14 @@
+node_modules/
+package-lock.json
+*.log
+*.tgz
+.env
+.env.*
+.npm/
+coverage/
+dist/
+.pi/
+*.jsonl
+.DS_Store
+*.swp
+*.swo
