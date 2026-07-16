@@ -8,7 +8,16 @@ import type { ExtensionConfig, JsonRecord } from "./config.ts";
 import type { ResponsesReasoningConfig, ResponsesTextConfig } from "./remote-compaction.ts";
 import { isRecord, toPositiveInteger } from "./config.ts";
 
-export type ModelLike = JsonRecord;
+export type ModelLike = {
+  api?: unknown;
+  provider?: unknown;
+  id?: unknown;
+  baseUrl?: unknown;
+  compat?: unknown;
+  contextWindow?: unknown;
+  reasoning?: unknown;
+  input?: readonly unknown[];
+};
 
 type AssistantMessageLike = {
   role?: unknown;

@@ -22,7 +22,7 @@ In practice, that means keeping two representations of context alive at once:
 
 2. **OpenAI-native representation**
    - for direct `openai/*`: `previous_response_id` for live continuation when safe
-   - for supported backends: opaque replacement history returned by a remote compaction endpoint
+   - for supported backends: opaque replacement history returned by Responses compaction v2
    - used only for compatible future OpenAI/OpenAI Codex turns
 
 ## High-level flow
@@ -48,8 +48,8 @@ In practice, that means keeping two representations of context alive at once:
 2. `src/index.ts` handles `session_before_compact`.
 3. In parallel, it tries to:
    - generate a **portable local summary**
-   - call the backend's remote compaction endpoint
-4. `src/remote-compaction.ts` converts Pi messages to OpenAI Responses `input` items and calls the remote compaction endpoint.
+   - request Responses compaction v2
+4. `src/remote-compaction.ts` converts Pi messages to OpenAI Responses `input` items, appends a `compaction_trigger`, and streams the compaction response from the normal Responses endpoint.
 5. If remote compaction succeeds, the returned opaque replacement history is stored in:
    - `CompactionEntry.details.remoteCompaction`
 6. Pi still keeps a text summary so the session remains understandable and portable.
@@ -72,7 +72,7 @@ Persisted state lives in the session JSONL file and survives reloads:
 - Pi `compaction` entries
 - `compaction.details.remoteCompaction`
 
-The persisted `remoteCompaction` payload is the important bridge to Codex-style behavior. It contains the opaque replacement history returned by the backend. Depending on provider, the replacement artifact item may currently appear as `compaction` or `compaction_summary`.
+The persisted `remoteCompaction` payload is the important bridge to Codex-style behavior. Version 2 contains retained user messages plus the opaque `compaction` item returned by Responses compaction v2. Version 1 entries from the legacy `/responses/compact` implementation remain readable for session compatibility.
 
 ### Runtime-only state
 
@@ -110,8 +110,9 @@ The Codex-style compaction layer.
 
 Responsibilities:
 - convert Pi messages to OpenAI Responses-style input items
-- call `POST /v1/responses/compact`
-- validate returned replacement history
+- call `POST /v1/responses` with a trailing `compaction_trigger`
+- parse the Responses SSE stream and validate the returned `compaction` item
+- retain recent user messages using Codex's 20K-token budget shape
 - build portable text summaries
 - rebuild replayable remote state from persisted compaction entries
 

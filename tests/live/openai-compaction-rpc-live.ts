@@ -48,6 +48,7 @@ const primaryModelProvider = primaryModel.includes("/") ? primaryModel.split("/"
 const primaryModelId = primaryModel.includes("/") ? primaryModel.split("/").at(-1) ?? primaryModel : primaryModel;
 const defaultRequestTimeoutMs = 120_000;
 const idlePollIntervalMs = 500;
+const compactionPadding = "context-padding ".repeat(7_000);
 
 function expect(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -348,9 +349,9 @@ class PiRpcClient {
   }
 }
 
-async function runSameProcessTest(sessionDir: string): Promise<void> {
+async function runSameProcessTest(sessionDir: string, workspaceDir: string): Promise<void> {
   console.log("== same-process compaction continuity test ==");
-  const client = new PiRpcClient(sessionDir);
+  const client = new PiRpcClient(sessionDir, undefined, workspaceDir);
   try {
     await client.waitIdle();
     const models = await client.getAvailableModels();
@@ -368,6 +369,12 @@ async function runSameProcessTest(sessionDir: string): Promise<void> {
     const cost1 = asNumber(stats1.cost, "get_session_stats.data.cost");
     expect(cost1 > 0, `Expected non-zero cost after first turn, got ${cost1}`);
 
+    await client.send({
+      type: "prompt",
+      message: `${compactionPadding}\nReply only with PADDING-OK.`,
+    });
+    await client.waitIdle();
+
     const compactResponse = await client.send(
       {
         type: "compact",
@@ -380,18 +387,19 @@ async function runSameProcessTest(sessionDir: string): Promise<void> {
     expect(!summary.includes(secret), `Summary still contains secret; test is inconclusive. Summary: ${summary}`);
 
     const remoteCompaction = nestedRecord(nestedRecord(compactData.details).remoteCompaction);
+    expect(
+      remoteCompaction.implementation === "responses_compaction_v2",
+      `Expected Responses compaction v2 details, got ${String(remoteCompaction.implementation)}`,
+    );
     const replacementHistory = asArray(
       remoteCompaction.replacementHistory,
       "compact.data.details.remoteCompaction.replacementHistory",
     );
     expect(replacementHistory.length > 0, "Missing remoteCompaction replacementHistory");
+    const replacementArtifact = replacementHistory.at(-1);
     expect(
-      replacementHistory.some(
-        (item) =>
-          isRecord(item) &&
-          (item.type === "compaction" || item.type === "compaction_summary" || typeof item.encrypted_content === "string"),
-      ),
-      "Replacement history missing compaction artifact",
+      isRecord(replacementArtifact) && replacementArtifact.type === "compaction",
+      "Replacement history must end with a compaction v2 artifact",
     );
 
     const stateAfterCompact = await client.getState();
@@ -483,7 +491,7 @@ async function runReducedPlaintextReplayTest(sessionDir: string, workspaceDir: s
 
     await client.send({
       type: "prompt",
-      message: "Reply with exactly PADDING-OK.",
+      message: `${compactionPadding}\nReply only with PADDING-OK.`,
     });
     await client.waitIdle();
 
@@ -498,16 +506,19 @@ async function runReducedPlaintextReplayTest(sessionDir: string, workspaceDir: s
     void asString(compactData.summary, "reduced-plaintext compact.data.summary");
 
     const remoteCompaction = nestedRecord(nestedRecord(compactData.details).remoteCompaction);
+    expect(
+      remoteCompaction.implementation === "responses_compaction_v2",
+      `Expected Responses compaction v2 details, got ${String(remoteCompaction.implementation)}`,
+    );
     const replacementHistory = asArray(
       remoteCompaction.replacementHistory,
       "reduced-plaintext compact.data.details.remoteCompaction.replacementHistory",
     );
     expect(replacementHistory.length > 0, "Missing replacementHistory in reduced-plaintext test");
+    const replacementArtifact = replacementHistory.at(-1);
     expect(
-      replacementHistory.some(
-        (item) => isRecord(item) && (item.type === "compaction" || item.type === "compaction_summary"),
-      ),
-      "Reduced-plaintext replacementHistory missing compaction artifact",
+      isRecord(replacementArtifact) && replacementArtifact.type === "compaction",
+      "Reduced-plaintext replacementHistory must end with a compaction v2 artifact",
     );
 
     const visibleHistory = JSON.stringify(redactEncryptedContent(replacementHistory));
@@ -533,14 +544,17 @@ async function runReducedPlaintextReplayTest(sessionDir: string, workspaceDir: s
   }
 }
 
-async function runForkTest(sessionDir: string): Promise<void> {
+async function runForkTest(sessionDir: string, workspaceDir: string): Promise<void> {
   console.log("== fork-after-compaction safety test ==");
-  const client = new PiRpcClient(sessionDir);
+  const client = new PiRpcClient(sessionDir, undefined, workspaceDir);
   try {
     await client.waitIdle();
     await client.send({ type: "prompt", message: "First forkable prompt. Reply FIRST-OK." });
     await client.waitIdle();
-    await client.send({ type: "prompt", message: "Second prompt before compaction. Reply SECOND-OK." });
+    await client.send({
+      type: "prompt",
+      message: `${compactionPadding}\nSecond prompt before compaction. Reply only with SECOND-OK.`,
+    });
     await client.waitIdle();
     await client.send({ type: "compact", customInstructions: "Summarize briefly." }, 240_000);
 
@@ -564,18 +578,23 @@ async function runForkTest(sessionDir: string): Promise<void> {
   }
 }
 
-async function runResumeTest(sessionDir: string): Promise<void> {
+async function runResumeTest(sessionDir: string, workspaceDir: string): Promise<void> {
   console.log("== resume-after-compaction continuity test ==");
 
   const secret = "BLUE-29-GAMMA";
   let sessionFile = "";
 
-  const client = new PiRpcClient(sessionDir);
+  const client = new PiRpcClient(sessionDir, undefined, workspaceDir);
   try {
     await client.waitIdle();
     await client.send({
       type: "prompt",
       message: `For later continuity testing, remember that the project codename is ${secret}. Reply only with MEMORIZED.`,
+    });
+    await client.waitIdle();
+    await client.send({
+      type: "prompt",
+      message: `${compactionPadding}\nReply only with PADDING-OK.`,
     });
     await client.waitIdle();
 
@@ -600,7 +619,7 @@ async function runResumeTest(sessionDir: string): Promise<void> {
     await client.close();
   }
 
-  const resumed = new PiRpcClient(sessionDir, sessionFile);
+  const resumed = new PiRpcClient(sessionDir, sessionFile, workspaceDir);
   try {
     await resumed.waitIdle();
     await resumed.send({
@@ -619,10 +638,10 @@ async function runResumeTest(sessionDir: string): Promise<void> {
   }
 }
 
-async function runResumeAfterModelSwitchTest(sessionDir: string): Promise<void> {
+async function runResumeAfterModelSwitchTest(sessionDir: string, workspaceDir: string): Promise<void> {
   console.log("== resume-after-model-switch compaction continuity test ==");
 
-  const client = new PiRpcClient(sessionDir);
+  const client = new PiRpcClient(sessionDir, undefined, workspaceDir);
   let sessionFile = "";
   const secret = "VIOLET-31-OMEGA";
   try {
@@ -634,6 +653,11 @@ async function runResumeAfterModelSwitchTest(sessionDir: string): Promise<void> 
     await client.send({
       type: "prompt",
       message: `For later continuity testing, remember that the project codename is ${secret}. Reply only with MEMORIZED.`,
+    });
+    await client.waitIdle();
+    await client.send({
+      type: "prompt",
+      message: `${compactionPadding}\nReply only with PADDING-OK.`,
     });
     await client.waitIdle();
 
@@ -690,7 +714,7 @@ async function runResumeAfterModelSwitchTest(sessionDir: string): Promise<void> 
     await client.close();
   }
 
-  const resumed = new PiRpcClient(sessionDir, sessionFile);
+  const resumed = new PiRpcClient(sessionDir, sessionFile, workspaceDir);
   try {
     await resumed.waitIdle();
     await resumed.send({
@@ -717,6 +741,7 @@ async function runResumeAfterModelSwitchTest(sessionDir: string): Promise<void> 
 async function main(): Promise<void> {
   const artifactsRoot = await mkdtemp(join(tmpdir(), "pi-openai-compaction-live-"));
   try {
+    const workspaceDir = join(artifactsRoot, "workspace");
     const sameProcessDir = join(artifactsRoot, "same-process");
     const reducedPlaintextDir = join(artifactsRoot, "reduced-plaintext");
     const reducedPlaintextWorkspaceDir = join(artifactsRoot, "reduced-plaintext-workspace");
@@ -724,6 +749,7 @@ async function main(): Promise<void> {
     const resumeDir = join(artifactsRoot, "resume");
     const resumeAfterSwitchDir = join(artifactsRoot, "resume-after-switch");
     await Promise.all([
+      mkdir(workspaceDir, { recursive: true }),
       mkdir(sameProcessDir, { recursive: true }),
       mkdir(reducedPlaintextDir, { recursive: true }),
       mkdir(reducedPlaintextWorkspaceDir, { recursive: true }),
@@ -732,16 +758,22 @@ async function main(): Promise<void> {
       mkdir(resumeAfterSwitchDir, { recursive: true }),
     ]);
 
-    await runSameProcessTest(sameProcessDir);
+    await writeProjectSettings(workspaceDir, {
+      compaction: {
+        keepRecentTokens: 1,
+      },
+    });
+
+    await runSameProcessTest(sameProcessDir, workspaceDir);
     if (primaryModelProvider === "openai") {
       await runReducedPlaintextReplayTest(reducedPlaintextDir, reducedPlaintextWorkspaceDir);
     } else {
       console.log("== reduced-plaintext replay test ==");
       console.log("skipped for non-direct OpenAI provider");
     }
-    await runForkTest(forkDir);
-    await runResumeTest(resumeDir);
-    await runResumeAfterModelSwitchTest(resumeAfterSwitchDir);
+    await runForkTest(forkDir, workspaceDir);
+    await runResumeTest(resumeDir, workspaceDir);
+    await runResumeAfterModelSwitchTest(resumeAfterSwitchDir, workspaceDir);
 
     console.log(`ALL LIVE TESTS PASSED\nartifacts: ${artifactsRoot}`);
     await rm(artifactsRoot, { recursive: true, force: true });

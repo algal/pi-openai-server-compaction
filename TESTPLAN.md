@@ -6,7 +6,7 @@
    - `store: true`
    - `context_management`
    - `previous_response_id` when safe
-   - `/v1/responses/compact` during Pi compaction
+   - `/v1/responses` with a trailing `compaction_trigger` during Pi compaction
 2. Verify Pi remains usable:
    - `/model`
    - `/tree`
@@ -33,7 +33,8 @@
 - Confirm extension returns a Pi compaction entry.
 - Inspect the session JSONL and confirm `details.remoteCompaction.replacementHistory` exists.
 - Continue the session and confirm later compatible turns still behave coherently.
-- Accept either a `compaction` or `compaction_summary` opaque artifact item in replacement history.
+- Confirm `details.remoteCompaction.implementation` is `responses_compaction_v2`.
+- Confirm replacement history ends with an opaque `compaction` item and retains only the recent user-message budget outside that item.
 
 ### 4. `/model` safety
 - After remote compaction, switch to another model with `/model`.
@@ -63,7 +64,8 @@
 ```bash
 cd /home/algal/gits/pi-openai-server-compaction
 node --experimental-strip-types ./tests/live/openai-compaction-rpc-live.ts
-PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai-codex/gpt-5.4 node --experimental-strip-types ./tests/live/openai-compaction-rpc-live.ts
+PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai/gpt-5.6-luna node --experimental-strip-types ./tests/live/openai-compaction-rpc-live.ts
+PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai-codex/gpt-5.6-luna node --experimental-strip-types ./tests/live/openai-compaction-rpc-live.ts
 ```
 
 The automated live harness lives in `tests/live/openai-compaction-rpc-live.ts`.

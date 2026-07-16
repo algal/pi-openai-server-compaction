@@ -2,11 +2,11 @@
 
 Pi extension that adds **Codex-style remote compaction** for OpenAI models, giving you better continuity across compaction boundaries while preserving all of Pi's normal features.
 
-Why would you want this? Codex seems to compact better than Claude Code, and Codex compacts by using OpenAI's server-side compaction endpoint. Although this endpoint returns encrypted outputs, so that it is hard to know _how_ it is compacting, it is a public endpoint and you can call it yourself. This extension configures Pi to use that endpoint for OpenAI models, instead of Pi's native compaction logic.
+Why would you want this? Codex seems to compact better than Claude Code, and Codex compacts by using OpenAI's server-side Responses compaction protocol. The current protocol sends a `compaction_trigger` through `POST /v1/responses` and receives an encrypted `compaction` item. This extension configures Pi to use that protocol for OpenAI models alongside Pi's native compaction logic.
 
 But is Codex's compaction _actually_ better? Is OpenAI doing something special in its server-side compaction endpoint? I thought so when I started this extension, but then I found this clever reverse engineering which shows that, apparently, they are not: https://x.com/alexisgallagher/status/2042396986327060736?s=20 .
 
-So if OpenAI's remote compaction endpoint is not doing anything special, then using it instead of Pi's compaction logic might provide little benefit. In this case, you don't need this extension at all! But if you still believe Codex is doing something special with compaction, and you want to configure your Pi to mimic what Codex does as closely as possible, then this extension is for you. Or, if OpenAI changes what their compaction endpoint does beneath the cover of encryption, then you can use this extension to use it within Pi.
+So if OpenAI's remote compaction protocol is not doing anything special, then using it alongside Pi's compaction logic might provide little benefit. In this case, you don't need this extension at all! But if you still believe Codex is doing something special with compaction, and you want to configure Pi to mimic what Codex does as closely as possible, then this extension is for you. If OpenAI changes what its compaction protocol does beneath the cover of encryption, this extension also lets Pi consume those provider-native artifacts.
 
 > **Status:** experimental but live-tested against real Pi + real OpenAI backends.
 > Recommended rollout: install project-local first, use for a week, keep rollback easy.
@@ -50,7 +50,7 @@ pi -e ./src/index.ts --model openai/gpt-5.4-nano
 
 ## What it does
 
-On compaction, the extension calls OpenAI's `/v1/responses/compact` endpoint in parallel with generating a portable Pi text summary. This gives you both:
+On compaction, the extension requests Responses compaction v2 through `/v1/responses` in parallel with generating a portable Pi text summary. This gives you both:
 
 - **An OpenAI-native opaque compaction artifact** for high-fidelity continuity on compatible future turns
 - **A portable Pi text summary** so non-OpenAI models, session exports, forking, and tree navigation keep working
@@ -68,8 +68,8 @@ For `openai-codex/*` models, the extension preserves the built-in Codex transpor
 On Pi compaction events for supported models, the extension:
 
 1. Generates a **portable Pi text summary** (full-branch summary with fallback to Pi's built-in compaction helper)
-2. Calls `POST /v1/responses/compact` with the conversation history, system prompt, tools, reasoning config, and text config
-3. Stores the returned opaque replacement history in `CompactionEntry.details.remoteCompaction`
+2. Calls `POST /v1/responses` with the conversation history, a trailing `compaction_trigger`, system prompt, tools, reasoning config, and text config
+3. Retains recent user messages and stores them with the returned opaque `compaction` item in `CompactionEntry.details.remoteCompaction`
 4. Persists remote compaction usage metadata when the backend returns it
 
 The compaction request mirrors the shape of surrounding normal requests (reasoning effort, text settings, tool definitions) rather than using endpoint defaults.
@@ -85,7 +85,7 @@ Remote compaction history is only replayed for compatible models. Cross-model tu
 Users should be aware:
 
 - For direct `openai/*` models, the extension sets `store: true` on requests, meaning OpenAI retains conversation data server-side
-- Conversation context is sent to OpenAI's remote compaction endpoint
+- Conversation context is sent to OpenAI's Responses compaction protocol
 - Returned opaque compaction artifacts are stored in Pi's local session JSONL
 - These artifacts are provider-native and not human-readable
 
@@ -160,7 +160,7 @@ PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai-codex/gpt-5.4 npm run test:live
 | File                                       | Purpose                                                           |
 |--------------------------------------------|-------------------------------------------------------------------|
 | `src/index.ts`                             | Extension wiring, compaction hook, lifecycle handling             |
-| `src/remote-compaction.ts`                 | `/responses/compact` integration and replacement-history handling |
+| `src/remote-compaction.ts`                 | Responses compaction v2 integration and replacement-history handling |
 | `src/openai-ws-stream.ts`                  | WebSocket continuation path                                       |
 | `src/openai-ws-connection.ts`              | WebSocket connection manager                                      |
 | `src/openai.ts`                            | Model detection and payload patching                              |

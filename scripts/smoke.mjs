@@ -99,10 +99,13 @@ const {
   buildRemoteCompactionHeaders,
   buildRemoteCompactionDetails,
   buildRemoteCompactionRequestBody,
+  buildRemoteCompactionV2History,
   extractRemoteCompactionDetails,
   normalizeResponseItemsForPrompt,
+  parseRemoteCompactionV2Events,
   processCompactedHistory,
   reconstructRemoteCompactionStateFromBranch,
+  remoteCompactionV2EndpointUrl,
 } = await import(pathToFileURL(join(repoRoot, "src", "remote-compaction.ts")).href);
 const {
   selectInputItemsForContinuation,
@@ -208,8 +211,50 @@ const requestBody = buildRemoteCompactionRequestBody({
   text: { verbosity: "medium" },
 });
 assert.equal(requestBody.model, "gpt-5.4-nano");
+assert.equal(requestBody.stream, true);
+assert.equal(requestBody.store, false);
+assert.equal(requestBody.tool_choice, "auto");
+assert.deepEqual(requestBody.include, ["reasoning.encrypted_content"]);
+assert.deepEqual(requestBody.input.at(-1), { type: "compaction_trigger" });
 assert.deepEqual(requestBody.reasoning, { effort: "high", summary: "auto" });
 assert.deepEqual(requestBody.text, { verbosity: "medium" });
+assert.equal(
+  remoteCompactionV2EndpointUrl({
+    provider: "openai",
+    api: "openai-responses",
+    baseUrl: "https://api.openai.com/v1",
+  }),
+  "https://api.openai.com/v1/responses",
+);
+assert.equal(
+  remoteCompactionV2EndpointUrl({
+    provider: "openai-codex",
+    api: "openai-codex-responses",
+    baseUrl: "https://chatgpt.com/backend-api",
+  }),
+  "https://chatgpt.com/backend-api/codex/responses",
+);
+
+const parsedV2Events = parseRemoteCompactionV2Events([
+  {
+    type: "response.output_item.done",
+    item: { type: "compaction", encrypted_content: "V2_ENCRYPTED" },
+  },
+  {
+    type: "response.completed",
+    response: { usage: { input_tokens: 10, output_tokens: 2, total_tokens: 12 } },
+  },
+]);
+assert.equal(parsedV2Events.compactionItem.type, "compaction");
+const v2History = buildRemoteCompactionV2History(
+  [
+    { type: "message", role: "user", content: [{ type: "input_text", text: "retain user" }] },
+    { type: "message", role: "assistant", content: [{ type: "output_text", text: "summarize assistant" }] },
+  ],
+  parsedV2Events.compactionItem,
+);
+assert.deepEqual(v2History.map((item) => item.type), ["message", "compaction"]);
+assert.equal(v2History[0].role, "user");
 
 const normalizedPromptItems = normalizeResponseItemsForPrompt(
   [
@@ -264,6 +309,8 @@ assert.equal(compactionHeaders.session_id, "session-123");
 assert.equal(compactionHeaders["x-codex-window-id"], "session-123:0");
 assert.match(compactionHeaders["x-codex-installation-id"], /^[0-9a-f-]{36}$/);
 assert.equal(compactionHeaders["x-extra"], "yes");
+assert.equal(compactionHeaders["x-codex-beta-features"], "remote_compaction_v2");
+assert.equal(compactionHeaders.accept, "text/event-stream");
 
 const websocketHeaders = buildCodexWebSocketHeaders("session-123");
 assert.equal(websocketHeaders["x-client-request-id"], "session-123");

@@ -1,8 +1,19 @@
 # Validation
 
-## Verified directly against OpenAI
+## Current Responses compaction v2 validation
 
-A direct manual probe against the OpenAI API succeeded:
+The full live Pi RPC suite passes with both:
+
+- `openai/gpt-5.4-nano` through the direct OpenAI Responses API
+- `openai-codex/gpt-5.4` through the ChatGPT Codex subscription backend
+
+The validated compaction request uses the normal Responses endpoint with a trailing `{ "type": "compaction_trigger" }`. Both backends returned an opaque `compaction` output item, persisted as `details.remoteCompaction` with `implementation: "responses_compaction_v2"`.
+
+Validated continuity includes same-process recall, reduced-plaintext replay, fork safety, resume/reload, and model-switch round trips. The reduced-plaintext test recovered a generated secret that was absent from all visible retained history and from the portable Pi summary.
+
+## Legacy `/responses/compact` validation
+
+Before the v2 migration, a direct manual probe against the OpenAI API succeeded:
 
 1. `POST /v1/responses/compact`
    - returned `object: "response.compaction"`
@@ -47,8 +58,8 @@ Validated end-to-end:
    - prompt stored a secret
    - `/compact` equivalent RPC compaction was run with custom instructions explicitly telling the text summary to omit the secret
    - compaction response contained `details.remoteCompaction.replacementHistory`
-   - direct OpenAI returned a `compaction` artifact item
-   - OpenAI Codex returned a `compaction_summary` artifact item
+   - the current direct OpenAI and OpenAI Codex paths return a `compaction` artifact item
+   - legacy session entries containing `compaction_summary` remain supported for replay compatibility
    - a later prompt in the same session correctly recovered the secret
 
 2. **`/model`-style switching mid-session**
@@ -74,7 +85,7 @@ Validated end-to-end:
    - Pi was restarted on the saved session file
    - the resumed session still recovered the secret, confirming reconstructed replay excluded the intervening other-model turn
 
-This strongly suggests the extension is now using the remote compaction artifact path in a way that materially affects continuity, while still keeping Pi operational across key session features on both the direct API provider and the OpenAI Codex subscription provider.
+This confirms the extension uses Responses compaction v2 artifacts in a way that materially affects continuity, while keeping Pi operational across key session features on both the direct API provider and the OpenAI Codex subscription provider.
 
 ## Hardening notes
 

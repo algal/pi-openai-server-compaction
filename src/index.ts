@@ -176,18 +176,19 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
     syncRemoteState(ctx);
   });
 
-  for (const eventName of ["session_before_switch", "session_before_fork", "session_before_tree"] as const) {
-    pi.on(eventName, (_event, ctx) => {
-      clearSessionRuntimeState(getSessionId(ctx));
-    });
-  }
+  const clearBeforeSessionChange = (_event: unknown, ctx: SessionContextLike): void => {
+    clearSessionRuntimeState(getSessionId(ctx));
+  };
+  pi.on("session_before_switch", clearBeforeSessionChange);
+  pi.on("session_before_fork", clearBeforeSessionChange);
+  pi.on("session_before_tree", clearBeforeSessionChange);
 
-  for (const eventName of ["session_tree", "session_compact"] as const) {
-    pi.on(eventName, (_event, ctx) => {
-      clearLiveContinuation(getSessionId(ctx));
-      syncRemoteState(ctx);
-    });
-  }
+  const syncAfterSessionChange = (_event: unknown, ctx: SessionContextLike): void => {
+    clearLiveContinuation(getSessionId(ctx));
+    syncRemoteState(ctx);
+  };
+  pi.on("session_tree", syncAfterSessionChange);
+  pi.on("session_compact", syncAfterSessionChange);
 
   pi.on("model_select", (_event, ctx) => {
     clearLiveContinuation(getSessionId(ctx));

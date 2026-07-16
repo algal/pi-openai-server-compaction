@@ -1,22 +1,22 @@
 /**
  * Codex-style remote compaction helpers.
  *
- * Converts Pi messages into OpenAI Responses items, calls
- * `/v1/responses/compact`, stores the returned opaque replacement history, and
- * reconstructs replayable state from persisted Pi session entries.
+ * Converts Pi messages into OpenAI Responses items, requests remote compaction
+ * through the Responses API's `compaction_trigger`, stores the returned opaque
+ * replacement history, and reconstructs replayable state from persisted Pi
+ * session entries.
  */
 import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { arch, platform, release } from "node:os";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
-import type { ToolInfo } from "@earendil-works/pi-coding-agent";
+import type { SessionBeforeCompactEvent, ToolInfo } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
 import {
   compact,
   convertToLlm,
   serializeConversation,
-  type CompactionPreparation,
   type CompactionResult,
 } from "@earendil-works/pi-coding-agent";
 import { calculateCost, type Model, type Usage } from "@earendil-works/pi-ai";
@@ -30,6 +30,7 @@ import {
   modelKey,
 } from "./openai.ts";
 
+type CompactionPreparation = SessionBeforeCompactEvent["preparation"];
 type AssistantPhase = "commentary" | "final_answer";
 type ToolResultOutputItem =
   | { type: "input_text"; text: string }
@@ -66,6 +67,7 @@ export type ResponseItem =
   | { type: "function_call_output"; call_id: string; output: string | ToolResultOutputItem[] }
   | { type: "compaction"; encrypted_content: string }
   | { type: "compaction_summary"; encrypted_content: string }
+  | { type: "compaction_trigger" }
   | { type: string; [key: string]: unknown };
 
 export type ResponsesReasoningConfig = {
@@ -78,11 +80,14 @@ export type ResponsesTextConfig = Record<string, unknown>;
 export type RemoteCompactionUsageSnapshot = Usage;
 
 const IMAGE_CONTENT_OMITTED_PLACEHOLDER = "image content omitted because you do not support image input";
+const REMOTE_COMPACTION_V2_FEATURE = "remote_compaction_v2";
+const RETAINED_MESSAGE_TOKEN_BUDGET = 20_000;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type RemoteCompactionDetails = {
-  version: 1;
-  provider: "openai-responses-compact";
+  version: 1 | 2;
+  provider: "openai-responses-compact" | "openai-responses-compaction";
+  implementation?: "responses_compact_v1" | "responses_compaction_v2";
   modelKey: string;
   replacementHistory: ResponseItem[];
   usage?: RemoteCompactionUsageSnapshot;
@@ -106,9 +111,10 @@ function normalizeBaseUrl(baseUrl: string | undefined, fallback: string): string
   return trimmed.replace(/\/+$/, "");
 }
 
-function resolveDirectOpenAICompactEndpoint(model: Model<any>): string {
+function resolveDirectOpenAIResponsesEndpoint(model: Model<any>): string {
   const baseUrl = normalizeBaseUrl(typeof model.baseUrl === "string" ? model.baseUrl : undefined, "https://api.openai.com/v1");
-  return baseUrl.endsWith("/v1") ? `${baseUrl}/responses/compact` : `${baseUrl}/v1/responses/compact`;
+  if (baseUrl.endsWith("/responses")) return baseUrl;
+  return baseUrl.endsWith("/v1") ? `${baseUrl}/responses` : `${baseUrl}/v1/responses`;
 }
 
 function resolveCodexResponsesEndpoint(model: Model<any>): string {
@@ -118,14 +124,14 @@ function resolveCodexResponsesEndpoint(model: Model<any>): string {
   return `${baseUrl}/codex/responses`;
 }
 
-function compactEndpointUrl(model: Model<any>): string {
+export function remoteCompactionV2EndpointUrl(model: Model<any>): string {
   if (isDirectOpenAIResponsesModel(model)) {
-    return resolveDirectOpenAICompactEndpoint(model);
+    return resolveDirectOpenAIResponsesEndpoint(model);
   }
   if (isOpenAICodexResponsesModel(model)) {
-    return `${resolveCodexResponsesEndpoint(model)}/compact`;
+    return resolveCodexResponsesEndpoint(model);
   }
-  throw new Error("Remote compaction endpoint is not supported for this model.");
+  throw new Error("Remote compaction v2 is not supported for this model.");
 }
 
 function resolveCodexHome(): string {
@@ -192,6 +198,22 @@ function extractCodexAccountId(token: string): string {
   return accountId;
 }
 
+function withRemoteCompactionV2Feature(headers: Record<string, string>): Record<string, string> {
+  const configuredFeatures = Object.entries(headers)
+    .find(([name]) => name.toLowerCase() === "x-codex-beta-features")?.[1]
+    ?.split(",")
+    .map((feature) => feature.trim())
+    .filter(Boolean) ?? [];
+  const headersWithoutFeature = Object.fromEntries(
+    Object.entries(headers).filter(([name]) => name.toLowerCase() !== "x-codex-beta-features"),
+  );
+  const features = [...new Set([...configuredFeatures, REMOTE_COMPACTION_V2_FEATURE])];
+  return {
+    ...headersWithoutFeature,
+    "x-codex-beta-features": features.join(","),
+  };
+}
+
 export function buildRemoteCompactionHeaders(params: {
   model: Model<any>;
   apiKey: string;
@@ -199,25 +221,26 @@ export function buildRemoteCompactionHeaders(params: {
   sessionId?: string;
 }): Record<string, string> {
   const codexIdentityHeaders = buildCodexIdentityHeaders(params.sessionId);
+  const commonHeaders = withRemoteCompactionV2Feature({
+    authorization: `Bearer ${params.apiKey}`,
+    ...codexIdentityHeaders,
+    ...(params.headers ?? {}),
+    accept: "text/event-stream",
+    "content-type": "application/json",
+  });
   if (isDirectOpenAIResponsesModel(params.model)) {
-    return {
-      authorization: `Bearer ${params.apiKey}`,
-      ...codexIdentityHeaders,
-      ...(params.headers ?? {}),
-    };
+    return commonHeaders;
   }
   if (isOpenAICodexResponsesModel(params.model)) {
     return {
-      authorization: `Bearer ${params.apiKey}`,
+      ...commonHeaders,
       "chatgpt-account-id": extractCodexAccountId(params.apiKey),
-      ...codexIdentityHeaders,
       originator: "pi",
       "user-agent": `pi-openai-server-compaction (${platform()} ${release()}; ${arch()})`,
       "OpenAI-Beta": "responses=experimental",
-      ...(params.headers ?? {}),
     };
   }
-  throw new Error("Remote compaction headers are not supported for this model.");
+  throw new Error("Remote compaction v2 headers are not supported for this model.");
 }
 
 function isAssistantPhase(value: unknown): value is AssistantPhase {
@@ -270,17 +293,17 @@ function toolResultContentToOutput(content: unknown): string | ToolResultOutputI
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return "";
 
-  return content
-    .filter((item): item is ContentPartLike => Boolean(item) && typeof item === "object")
-    .flatMap((item) => {
-      if (item.type === "text" && typeof item.text === "string") {
-        return [{ type: "input_text", text: item.text } as const];
-      }
-      if (item.type === "image" && typeof item.data === "string" && typeof item.mimeType === "string") {
-        return [{ type: "input_image", image_url: `data:${item.mimeType};base64,${item.data}` } as const];
-      }
-      return [];
-    });
+  const output: ToolResultOutputItem[] = [];
+  for (const item of content) {
+    if (!item || typeof item !== "object") continue;
+    const part = item as ContentPartLike;
+    if (part.type === "text" && typeof part.text === "string") {
+      output.push({ type: "input_text", text: part.text });
+    } else if (part.type === "image" && typeof part.data === "string" && typeof part.mimeType === "string") {
+      output.push({ type: "input_image", image_url: `data:${part.mimeType};base64,${part.data}` });
+    }
+  }
+  return output;
 }
 
 function parseThinkingSignature(value: unknown): ResponseItem | undefined {
@@ -408,12 +431,12 @@ function cloneResponseItem(item: ResponseItem): ResponseItem {
 }
 
 function responseItemCallId(item: ResponseItem): string | undefined {
-  const callId = item.call_id;
+  const callId = (item as Record<string, unknown>).call_id;
   return typeof callId === "string" && callId ? callId : undefined;
 }
 
 function responseItemOutput(item: ResponseItem): unknown {
-  return item.output;
+  return (item as Record<string, unknown>).output;
 }
 
 function syntheticOutputForCall(item: ResponseItem): ResponseItem | undefined {
@@ -576,6 +599,67 @@ export function processCompactedHistory(items: ResponseItem[]): ResponseItem[] {
   return items.filter(shouldKeepCompactedHistoryItem).map(cloneResponseItem);
 }
 
+function responseMessageText(item: ResponseItem): string {
+  if (item.type !== "message" || !Array.isArray(item.content)) return "";
+  return item.content
+    .filter((content): content is Extract<ResponseContentItem, { type: "input_text" | "output_text" }> =>
+      content.type === "input_text" || content.type === "output_text",
+    )
+    .map((content) => content.text)
+    .join("");
+}
+
+function approximateMessageTokens(item: ResponseItem): number {
+  return Math.max(1, Math.ceil(responseMessageText(item).length / 4));
+}
+
+function truncateMessageToTokenBudget(item: ResponseItem, maxTokens: number): ResponseItem | undefined {
+  if (item.type !== "message" || !Array.isArray(item.content)) return cloneResponseItem(item);
+  let remainingCharacters = Math.max(0, maxTokens * 4);
+  const content = item.content.flatMap((part) => {
+    if (part.type === "input_image") return [part];
+    if (remainingCharacters === 0) return [];
+    const text = part.text.slice(0, remainingCharacters);
+    remainingCharacters -= text.length;
+    return text ? [{ ...part, text }] : [];
+  });
+  return content.length > 0 ? { ...cloneResponseItem(item), content } : undefined;
+}
+
+function truncateRetainedMessages(items: ResponseItem[], maxTokens: number): ResponseItem[] {
+  let remainingTokens = maxTokens;
+  const retainedReversed: ResponseItem[] = [];
+  for (const item of [...items].reverse()) {
+    if (remainingTokens === 0) break;
+    const tokenCount = approximateMessageTokens(item);
+    if (tokenCount <= remainingTokens) {
+      retainedReversed.push(cloneResponseItem(item));
+      remainingTokens -= tokenCount;
+      continue;
+    }
+    const truncated = truncateMessageToTokenBudget(item, remainingTokens);
+    if (truncated) retainedReversed.push(truncated);
+    remainingTokens = 0;
+  }
+  return retainedReversed.reverse();
+}
+
+export function buildRemoteCompactionV2History(
+  input: ResponseItem[],
+  compactionItem: ResponseItem,
+): ResponseItem[] {
+  if (compactionItem.type !== "compaction") {
+    throw new Error("OpenAI remote compaction v2 did not return a compaction item.");
+  }
+  const retainedUserMessages = input.filter(
+    (item) => item.type === "message" && item.role === "user" && isRealUserMessage(item),
+  );
+  return [
+    ...truncateRetainedMessages(retainedUserMessages, RETAINED_MESSAGE_TOKEN_BUDGET),
+    cloneResponseItem(compactionItem),
+  ];
+}
+
 function toolInfoToResponseTool(tool: ToolInfo): Record<string, unknown> {
   return {
     type: "function",
@@ -661,25 +745,6 @@ export async function generateBestEffortLocalSummary(params: {
       params.thinkingLevel,
     );
   }
-}
-
-function sanitizeResponseItems(items: unknown): ResponseItem[] {
-  if (!Array.isArray(items)) {
-    throw new Error("OpenAI remote compaction returned no output array.");
-  }
-  const normalized = items.filter(isResponseItem);
-  if (normalized.length === 0) {
-    throw new Error("OpenAI remote compaction returned an empty output array.");
-  }
-  return normalized;
-}
-
-function sanitizeCompactedHistory(items: unknown): ResponseItem[] {
-  const processed = processCompactedHistory(sanitizeResponseItems(items));
-  if (processed.length === 0) {
-    throw new Error("OpenAI remote compaction returned no replayable history items.");
-  }
-  return processed;
 }
 
 function extractCacheWriteTokens(value: unknown): number {
@@ -769,16 +834,86 @@ export function buildRemoteCompactionRequestBody(params: {
   parallelToolCalls: boolean;
   reasoning?: ResponsesReasoningConfig;
   text?: ResponsesTextConfig;
+  sessionId?: string;
 }): Record<string, unknown> {
   return {
     model: params.model.id,
-    input: params.input,
+    input: [...params.input, { type: "compaction_trigger" }],
     instructions: params.instructions,
     tools: params.tools,
     parallel_tool_calls: params.parallelToolCalls,
+    tool_choice: "auto",
+    stream: true,
+    store: false,
+    include: ["reasoning.encrypted_content"],
+    ...(params.sessionId ? { prompt_cache_key: params.sessionId } : {}),
     ...(params.reasoning ? { reasoning: params.reasoning } : {}),
     ...(params.text ? { text: params.text } : {}),
   };
+}
+
+type RemoteCompactionV2Events = {
+  compactionItem: ResponseItem;
+  usage?: unknown;
+};
+
+function parseSseData(text: string): unknown[] {
+  return text
+    .replace(/\r\n/g, "\n")
+    .split("\n\n")
+    .flatMap((block) => {
+      const data = block
+        .split("\n")
+        .filter((line) => line.startsWith("data:"))
+        .map((line) => line.slice(5).trimStart())
+        .join("\n")
+        .trim();
+      if (!data || data === "[DONE]") return [];
+      try {
+        return [JSON.parse(data) as unknown];
+      } catch {
+        return [];
+      }
+    });
+}
+
+export function parseRemoteCompactionV2Events(events: unknown[]): RemoteCompactionV2Events {
+  let completed = false;
+  let usage: unknown;
+  const compactionItems: ResponseItem[] = [];
+
+  for (const event of events) {
+    if (!isRecord(event)) continue;
+    if (event.type === "error") {
+      const message = typeof event.message === "string" ? event.message : "Unknown Responses API error";
+      throw new Error(`OpenAI remote compaction v2 failed: ${message}`);
+    }
+    if (event.type === "response.failed") {
+      const response = isRecord(event.response) ? event.response : undefined;
+      const error = response && isRecord(response.error) ? response.error : undefined;
+      const message = typeof error?.message === "string" ? error.message : "Response failed";
+      throw new Error(`OpenAI remote compaction v2 failed: ${message}`);
+    }
+    if (event.type === "response.output_item.done" && isResponseItem(event.item)) {
+      if (event.item.type === "compaction") compactionItems.push(event.item);
+      continue;
+    }
+    if (event.type === "response.completed") {
+      completed = true;
+      const response = isRecord(event.response) ? event.response : undefined;
+      usage = response?.usage;
+    }
+  }
+
+  if (!completed) {
+    throw new Error("OpenAI remote compaction v2 stream ended before response.completed.");
+  }
+  if (compactionItems.length !== 1) {
+    throw new Error(
+      `OpenAI remote compaction v2 expected exactly one compaction item, got ${compactionItems.length}.`,
+    );
+  }
+  return { compactionItem: compactionItems[0], usage };
 }
 
 export async function callRemoteCompactionEndpoint(params: {
@@ -795,20 +930,17 @@ export async function callRemoteCompactionEndpoint(params: {
   signal?: AbortSignal;
 }): Promise<RemoteCompactionResult> {
   if (!supportsRemoteCompactionModel(params.model)) {
-    throw new Error("Remote compaction endpoint is currently only enabled for supported OpenAI-compatible Responses models.");
+    throw new Error("Remote compaction v2 is currently only enabled for supported OpenAI-compatible Responses models.");
   }
 
-  const response = await fetch(compactEndpointUrl(params.model), {
+  const response = await fetch(remoteCompactionV2EndpointUrl(params.model), {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      ...buildRemoteCompactionHeaders({
-        model: params.model,
-        apiKey: params.apiKey,
-        headers: params.headers,
-        sessionId: params.sessionId,
-      }),
-    },
+    headers: buildRemoteCompactionHeaders({
+      model: params.model,
+      apiKey: params.apiKey,
+      headers: params.headers,
+      sessionId: params.sessionId,
+    }),
     body: JSON.stringify(buildRemoteCompactionRequestBody({
       model: params.model,
       input: params.input,
@@ -817,19 +949,21 @@ export async function callRemoteCompactionEndpoint(params: {
       parallelToolCalls: params.parallelToolCalls,
       reasoning: params.reasoning,
       text: params.text,
+      sessionId: params.sessionId,
     })),
     signal: params.signal,
   });
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new Error(`OpenAI remote compaction failed (${response.status}): ${text || response.statusText}`);
+    throw new Error(`OpenAI remote compaction v2 failed (${response.status}): ${text || response.statusText}`);
   }
 
-  const json = (await response.json()) as { output?: unknown; usage?: unknown };
+  const responseText = await response.text();
+  const parsed = parseRemoteCompactionV2Events(parseSseData(responseText));
   return {
-    output: sanitizeCompactedHistory(json.output),
-    usage: extractRemoteCompactionUsage(params.model, json.usage),
+    output: buildRemoteCompactionV2History(params.input, parsed.compactionItem),
+    usage: extractRemoteCompactionUsage(params.model, parsed.usage),
   };
 }
 
@@ -839,8 +973,9 @@ export function buildRemoteCompactionDetails(
   usage?: RemoteCompactionUsageSnapshot,
 ): RemoteCompactionDetails {
   return {
-    version: 1,
-    provider: "openai-responses-compact",
+    version: 2,
+    provider: "openai-responses-compaction",
+    implementation: "responses_compaction_v2",
     modelKey: modelKey(model),
     replacementHistory,
     ...(usage ? { usage } : {}),
@@ -854,7 +989,9 @@ export function extractRemoteCompactionDetails(details: unknown):
 
   const remote = isRecord(details.remoteCompaction) ? details.remoteCompaction : details;
   if (!isRecord(remote)) return undefined;
-  if (remote.provider !== "openai-responses-compact" || remote.version !== 1) return undefined;
+  const isLegacy = remote.provider === "openai-responses-compact" && remote.version === 1;
+  const isV2 = remote.provider === "openai-responses-compaction" && remote.version === 2;
+  if (!isLegacy && !isV2) return undefined;
   if (!Array.isArray(remote.replacementHistory)) return undefined;
 
   const replacementHistory = remote.replacementHistory.filter(isResponseItem);
@@ -863,8 +1000,9 @@ export function extractRemoteCompactionDetails(details: unknown):
   const usage = parseRemoteCompactionUsageSnapshot(remote.usage);
 
   return {
-    version: 1,
-    provider: "openai-responses-compact",
+    version: isV2 ? 2 : 1,
+    provider: isV2 ? "openai-responses-compaction" : "openai-responses-compact",
+    implementation: isV2 ? "responses_compaction_v2" : "responses_compact_v1",
     modelKey: typeof remote.modelKey === "string" ? remote.modelKey : "",
     replacementHistory,
     ...(usage ? { usage } : {}),

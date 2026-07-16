@@ -6,7 +6,6 @@
  * input replay.
  */
 import { randomUUID } from "node:crypto";
-import type { StreamFn } from "@earendil-works/pi-agent-core";
 import {
   calculateCost,
   createAssistantMessageEventStream,
@@ -19,9 +18,9 @@ import {
   type SimpleStreamOptions,
   type StopReason,
   type TextContent,
-  type Tool,
   type ToolCall,
   type Usage,
+  type StreamFunction,
 } from "@earendil-works/pi-ai";
 import { streamSimpleOpenAIResponses } from "@earendil-works/pi-ai/compat";
 import { loadConfig } from "./config.ts";
@@ -34,6 +33,7 @@ import {
   type ContentPart,
   type FunctionToolDefinition,
   type InputItem,
+  isResponseObject,
   OpenAIWebSocketManager,
   type OpenAIResponsesAssistantPhase,
   type OpenAIWebSocketEvent,
@@ -237,6 +237,16 @@ function toNonEmptyString(value: unknown): string | null {
 
 function normalizeAssistantPhase(value: unknown): OpenAIResponsesAssistantPhase | undefined {
   return value === "commentary" || value === "final_answer" ? value : undefined;
+}
+
+function responseFromEvent(event: OpenAIWebSocketEvent): ResponseObject | undefined {
+  const response = (event as { response?: unknown }).response;
+  return isResponseObject(response) ? response : undefined;
+}
+
+function eventString(event: OpenAIWebSocketEvent, key: string): string | undefined {
+  const value = (event as Record<string, unknown>)[key];
+  return typeof value === "string" ? value : undefined;
 }
 
 function encodeAssistantTextSignature(params: {
@@ -489,9 +499,10 @@ function convertMessagesToInputItems(messages: Message[], modelOverride?: Replay
 
 function buildAssistantMessageFromResponse(
   response: ResponseObject,
-  modelInfo: ModelDescriptor,
+  model: Model<any>,
   serviceTier?: "auto" | "default" | "flex" | "priority",
 ): AssistantMessage {
+  const modelInfo = getModelDescriptor(model);
   const content: (TextContent | ToolCall)[] = [];
   let assistantPhase: OpenAIResponsesAssistantPhase | undefined;
 
@@ -541,7 +552,7 @@ function buildAssistantMessageFromResponse(
     totalTokens: response.usage?.total_tokens ?? 0,
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
   };
-  calculateCost(modelInfo as unknown as Model<any>, usage);
+  calculateCost(model, usage);
   applyServiceTierPricing(usage, modelInfo, response.service_tier ?? serviceTier);
   const message = buildAssistantMessage({
     model: modelInfo,
@@ -675,10 +686,15 @@ async function runWarmUp(params: {
         resolve();
       } else if (event.type === "response.failed") {
         cleanup();
-        reject(new Error(`warm-up failed: ${event.response?.error?.message ?? "Response failed"}`));
+        reject(new Error(`warm-up failed: ${responseFromEvent(event)?.error?.message ?? "Response failed"}`));
       } else if (event.type === "error") {
         cleanup();
-        reject(new Error(`warm-up error: ${event.message} (code=${event.code})`));
+        reject(
+          new Error(
+            `warm-up error: ${eventString(event, "message") ?? "Unknown error"} ` +
+              `(code=${eventString(event, "code") ?? "unknown"})`,
+          ),
+        );
       }
     });
 
@@ -759,7 +775,7 @@ async function fallbackToHttpResponses(
 
 export function createOpenAIWebSocketStreamFn(
   managerOptions: OpenAIWebSocketManagerOptions = {},
-): StreamFn {
+): StreamFunction {
   return (model, context, options) => {
     const eventStream = createEventStream();
 
@@ -926,15 +942,21 @@ export function createOpenAIWebSocketStreamFn(
 
           const unsubscribe = session.manager.onMessage((event: OpenAIWebSocketEvent) => {
             if (event.type === "response.completed") {
+              const response = responseFromEvent(event);
+              if (!response) {
+                cleanup();
+                reject(new Error("OpenAI WebSocket completed event had no valid response."));
+                return;
+              }
               cleanup();
               session.lastContextLength = capturedContextLength;
               const assistantMsg = buildAssistantMessageFromResponse(
-                event.response,
-                modelInfo,
+                response,
+                model,
                 typedOptions?.serviceTier,
               );
               setContinuationState(sessionId, {
-                responseId: event.response.id,
+                responseId: response.id,
                 modelKey: currentModelKey,
                 updatedAt: Date.now(),
                 contextLength: capturedContextLength,
@@ -945,14 +967,25 @@ export function createOpenAIWebSocketStreamFn(
               resolve();
             } else if (event.type === "response.failed") {
               cleanup();
-              reject(new Error(`OpenAI WebSocket response failed: ${event.response?.error?.message ?? "Response failed"}`));
+              reject(
+                new Error(
+                  `OpenAI WebSocket response failed: ${responseFromEvent(event)?.error?.message ?? "Response failed"}`,
+                ),
+              );
             } else if (event.type === "error") {
               cleanup();
-              reject(new Error(`OpenAI WebSocket error: ${event.message} (code=${event.code})`));
+              reject(
+                new Error(
+                  `OpenAI WebSocket error: ${eventString(event, "message") ?? "Unknown error"} ` +
+                    `(code=${eventString(event, "code") ?? "unknown"})`,
+                ),
+              );
             } else if (event.type === "response.output_text.delta") {
+              const delta = eventString(event, "delta");
+              if (delta === undefined) return;
               const partialMsg: AssistantMessage = buildAssistantMessageWithZeroUsage({
                 model: modelInfo,
-                content: [{ type: "text", text: event.delta }],
+                content: [{ type: "text", text: delta }],
                 stopReason: "stop",
               });
               if (!textStarted) {
@@ -966,7 +999,7 @@ export function createOpenAIWebSocketStreamFn(
               eventStream.push({
                 type: "text_delta",
                 contentIndex: 0,
-                delta: event.delta,
+                delta,
                 partial: partialMsg,
               });
             }

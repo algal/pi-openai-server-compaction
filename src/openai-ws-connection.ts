@@ -55,6 +55,12 @@ export type OutputItem =
       summary?: string;
     };
 
+export function isResponseObject(value: unknown): value is ResponseObject {
+  if (!value || typeof value !== "object") return false;
+  const response = value as { id?: unknown; output?: unknown };
+  return typeof response.id === "string" && Array.isArray(response.output);
+}
+
 export interface ResponseCompletedEvent {
   type: "response.completed";
   response: ResponseObject;
@@ -385,8 +391,9 @@ export class OpenAIWebSocketManager extends EventEmitter {
     }
 
     const event = parsed as OpenAIWebSocketEvent;
-    if (event.type === "response.completed" && event.response?.id) {
-      this._previousResponseId = event.response.id;
+    const response = (event as { response?: unknown }).response;
+    if (event.type === "response.completed" && isResponseObject(response)) {
+      this._previousResponseId = response.id;
     }
     this.emit("message", event);
   }
