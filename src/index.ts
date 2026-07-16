@@ -4,8 +4,8 @@
  * Wires together request patching, remote compaction, runtime state
  * reconstruction, session lifecycle cleanup, and provider override registration.
  */
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { isRecord, loadConfig } from "./config.ts";
 import { streamOpenAIResponsesWithPhase2B } from "./custom-stream.ts";
 import {
@@ -31,6 +31,7 @@ import {
   generateBestEffortLocalSummary,
   messageToResponseItems,
   messagesToResponseItems,
+  normalizeResponseItemsForPrompt,
   reconstructRemoteCompactionStateFromBranch,
 } from "./remote-compaction.ts";
 import {
@@ -214,8 +215,10 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
     const responseItems = remoteState
       ? remoteState.explicitHistory
       : messagesToResponseItems(fullBranchMessages);
+    const promptResponseItems = normalizeResponseItemsForPrompt(responseItems, model);
+    const thinkingLevel = pi.getThinkingLevel();
     const fallbackReasoning = model.reasoning
-      ? thinkingLevelToResponsesReasoning(getBranchThinkingLevel(branchEntries))
+      ? thinkingLevelToResponsesReasoning(thinkingLevel ?? getBranchThinkingLevel(branchEntries))
       : undefined;
     const reasoning = observedRequestShape?.reasoning ?? fallbackReasoning;
     const text = observedRequestShape?.text;
@@ -229,6 +232,7 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
         headers: auth.headers,
         customInstructions: event.customInstructions,
         signal: event.signal,
+        thinkingLevel,
         firstKeptEntryId: event.preparation.firstKeptEntryId,
         tokensBefore: event.preparation.tokensBefore,
       }),
@@ -237,7 +241,7 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
         apiKey: auth.apiKey,
         headers: auth.headers,
         sessionId,
-        input: responseItems,
+        input: promptResponseItems,
         instructions: ctx.getSystemPrompt(),
         tools,
         parallelToolCalls: true,
@@ -329,7 +333,7 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
       if (!remoteState) return undefined;
       const payload = applyRemoteHistoryPayloadPatch({
         payload: event.payload,
-        explicitHistory: remoteState.explicitHistory as unknown[],
+        explicitHistory: normalizeResponseItemsForPrompt(remoteState.explicitHistory, model) as unknown[],
       });
       maybeNotifyRequestFeatures({
         notifiedModels,

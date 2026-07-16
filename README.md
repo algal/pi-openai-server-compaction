@@ -44,9 +44,9 @@ pi -e ./src/index.ts --model openai/gpt-5.4-nano
 ## Requirements
 
 - Node `>= 22`
-- Pi installed and working
+- Pi `0.80.9` or newer
 - Auth/config for the model you want to use must already work in Pi
-- A supported OpenAI Responses model, e.g. `openai/gpt-5.4-nano` or `openai-codex/gpt-5.4`
+- A supported OpenAI Responses model, e.g. `openai/gpt-5.6-sol` or `openai-codex/gpt-5.6-sol`
 
 ## What it does
 

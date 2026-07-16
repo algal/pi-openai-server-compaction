@@ -4,13 +4,13 @@
  * Chooses between Pi's normal HTTP Responses streaming path and this package's
  * custom WebSocket-backed continuation path for direct OpenAI Responses models.
  */
-import type { StreamFn } from "@mariozechner/pi-agent-core";
-import {
-  streamSimpleOpenAIResponses,
-  type SimpleStreamOptions,
-  type Context,
-  type Model,
-} from "@mariozechner/pi-ai";
+import type { StreamFn } from "@earendil-works/pi-agent-core";
+import type {
+  SimpleStreamOptions,
+  Context,
+  Model,
+} from "@earendil-works/pi-ai";
+import { streamSimpleOpenAIResponses } from "@earendil-works/pi-ai/compat";
 import { createOpenAIWebSocketStreamFn } from "./openai-ws-stream.ts";
 import { loadConfig } from "./config.ts";
 import { isDirectOpenAIResponsesModel } from "./openai.ts";

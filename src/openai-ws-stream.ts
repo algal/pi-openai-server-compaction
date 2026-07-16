@@ -6,11 +6,10 @@
  * input replay.
  */
 import { randomUUID } from "node:crypto";
-import type { StreamFn } from "@mariozechner/pi-agent-core";
+import type { StreamFn } from "@earendil-works/pi-agent-core";
 import {
   calculateCost,
   createAssistantMessageEventStream,
-  streamSimpleOpenAIResponses,
   type AssistantMessage,
   type AssistantMessageEvent,
   type AssistantMessageEventStream,
@@ -23,7 +22,8 @@ import {
   type Tool,
   type ToolCall,
   type Usage,
-} from "@mariozechner/pi-ai";
+} from "@earendil-works/pi-ai";
+import { streamSimpleOpenAIResponses } from "@earendil-works/pi-ai/compat";
 import { loadConfig } from "./config.ts";
 import {
   isDirectOpenAIResponsesModel,
@@ -45,6 +45,10 @@ import {
   buildAssistantMessageWithZeroUsage,
   buildStreamErrorAssistantMessage,
 } from "./stream-message-shared.ts";
+import {
+  buildCodexWebSocketHeaders,
+  normalizeResponseItemsForPrompt,
+} from "./remote-compaction.ts";
 import {
   getContinuationState,
   getRemoteCompactionState,
@@ -94,9 +98,11 @@ type WsOptions = SimpleStreamOptions & {
 
 function applyServiceTierPricing(
   usage: Usage,
+  modelInfo: ModelDescriptor,
   serviceTier: "auto" | "default" | "flex" | "priority" | undefined,
 ): void {
-  const multiplier = serviceTier === "flex" ? 0.5 : serviceTier === "priority" ? 2 : 1;
+  const priorityMultiplier = modelInfo.id === "gpt-5.5" ? 2.5 : 2;
+  const multiplier = serviceTier === "flex" ? 0.5 : serviceTier === "priority" ? priorityMultiplier : 1;
   if (multiplier === 1) return;
   usage.cost.input *= multiplier;
   usage.cost.output *= multiplier;
@@ -536,7 +542,7 @@ function buildAssistantMessageFromResponse(
     cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
   };
   calculateCost(modelInfo as unknown as Model<any>, usage);
-  applyServiceTierPricing(usage, response.service_tier ?? serviceTier);
+  applyServiceTierPricing(usage, modelInfo, response.service_tier ?? serviceTier);
   const message = buildAssistantMessage({
     model: modelInfo,
     content,
@@ -594,7 +600,10 @@ export function selectInputItemsForContinuation(params: {
   const { context, model, session, currentModelKey, remoteCompactionState, previousResponseId } = params;
 
   if (remoteCompactionState && remoteCompactionState.modelKey === currentModelKey) {
-    return remoteCompactionState.explicitHistory as Array<InputItem | Record<string, unknown>>;
+    return normalizeResponseItemsForPrompt(
+      remoteCompactionState.explicitHistory,
+      model,
+    ) as Array<InputItem | Record<string, unknown>>;
   }
 
   if (previousResponseId && session.lastContextLength > 0) {
@@ -712,7 +721,7 @@ async function fallbackToHttp(
       if (payload && typeof payload === "object") {
         const payloadObj = { ...(payload as Record<string, unknown>) };
         if (remoteCompactionState && remoteCompactionState.modelKey === modelKey(model)) {
-          payloadObj.input = remoteCompactionState.explicitHistory as unknown[];
+          payloadObj.input = normalizeResponseItemsForPrompt(remoteCompactionState.explicitHistory, model) as unknown[];
           delete payloadObj.previous_response_id;
           nextPayload = payloadObj;
         } else if (
@@ -776,8 +785,12 @@ export function createOpenAIWebSocketStreamFn(
           session = undefined;
         }
         if (!session) {
+          const headers = {
+            ...(managerOptions?.headers ?? {}),
+            ...buildCodexWebSocketHeaders(sessionId),
+          };
           session = {
-            manager: new OpenAIWebSocketManager(managerOptions),
+            manager: new OpenAIWebSocketManager({ ...managerOptions, headers }),
             modelKey: currentModelKey,
             lastContextLength: 0,
             lastRequestKey: undefined,

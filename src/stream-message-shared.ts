@@ -4,7 +4,7 @@
  * Keeps the WebSocket stream path aligned with Pi's expected assistant message
  * shapes for partials, finals, usage accounting, and stream errors.
  */
-import type { AssistantMessage, StopReason, Usage } from "@mariozechner/pi-ai";
+import type { AssistantMessage, StopReason, Usage } from "@earendil-works/pi-ai";
 
 export type StreamModelDescriptor = {
   api: string;

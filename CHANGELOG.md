@@ -2,6 +2,10 @@
 
 This changelog intentionally starts at **0.1.0**.
 
+## Unreleased
+- target Pi 0.80.9 and the `@earendil-works/*` package namespace
+- align compaction fallback, Responses payload normalization, Codex identity headers, and WebSocket behavior with Pi 0.80.9
+
 During local development on 2026-04-09, the project used temporary internal version bumps while features, tests, docs, and packaging were being assembled. Those local-only bumps were collapsed before the first public push so the repository does not imply a longer tracked public release history than it actually has.
 
 ## 0.1.0 - 2026-04-09

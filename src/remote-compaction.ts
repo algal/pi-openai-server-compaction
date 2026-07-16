@@ -5,17 +5,22 @@
  * `/v1/responses/compact`, stores the returned opaque replacement history, and
  * reconstructs replayable state from persisted Pi session entries.
  */
+import { randomUUID } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { arch, platform, release } from "node:os";
-import type { ToolInfo } from "@mariozechner/pi-coding-agent";
-import type { AgentMessage } from "@mariozechner/pi-agent-core";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import type { ToolInfo } from "@earendil-works/pi-coding-agent";
+import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
 import {
   compact,
   convertToLlm,
   serializeConversation,
   type CompactionPreparation,
   type CompactionResult,
-} from "@mariozechner/pi-coding-agent";
-import { calculateCost, complete, type Model, type Usage } from "@mariozechner/pi-ai";
+} from "@earendil-works/pi-coding-agent";
+import { calculateCost, type Model, type Usage } from "@earendil-works/pi-ai";
+import { complete } from "@earendil-works/pi-ai/compat";
 import { isRecord } from "./config.ts";
 import {
   hostnameFromBaseUrl,
@@ -72,6 +77,9 @@ export type ResponsesTextConfig = Record<string, unknown>;
 
 export type RemoteCompactionUsageSnapshot = Usage;
 
+const IMAGE_CONTENT_OMITTED_PLACEHOLDER = "image content omitted because you do not support image input";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export type RemoteCompactionDetails = {
   version: 1;
   provider: "openai-responses-compact";
@@ -120,6 +128,52 @@ function compactEndpointUrl(model: Model<any>): string {
   throw new Error("Remote compaction endpoint is not supported for this model.");
 }
 
+function resolveCodexHome(): string {
+  const configured = process.env.CODEX_HOME?.trim();
+  return configured ? configured : join(homedir(), ".codex");
+}
+
+function resolveCodexInstallationId(): string {
+  const path = join(resolveCodexHome(), "installation_id");
+  try {
+    if (existsSync(path)) {
+      const existing = readFileSync(path, "utf8").trim();
+      if (UUID_RE.test(existing)) return existing.toLowerCase();
+    }
+  } catch {
+    // Fall through and regenerate below, matching Codex's invalid-file behavior.
+  }
+
+  const installationId = randomUUID();
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, installationId);
+  } catch {
+    // Header is a parity hint, not a reason to fail compaction.
+  }
+  return installationId;
+}
+
+export function buildCodexIdentityHeaders(sessionId?: string): Record<string, string> {
+  if (!sessionId) {
+    return {
+      "x-codex-installation-id": resolveCodexInstallationId(),
+    };
+  }
+  return {
+    "x-codex-installation-id": resolveCodexInstallationId(),
+    "x-codex-window-id": `${sessionId}:0`,
+    session_id: sessionId,
+  };
+}
+
+export function buildCodexWebSocketHeaders(sessionId: string): Record<string, string> {
+  return {
+    "x-client-request-id": sessionId,
+    ...buildCodexIdentityHeaders(sessionId),
+  };
+}
+
 function extractCodexAccountId(token: string): string {
   const parts = token.split(".");
   if (parts.length !== 3) {
@@ -138,16 +192,17 @@ function extractCodexAccountId(token: string): string {
   return accountId;
 }
 
-function buildRemoteCompactionHeaders(params: {
+export function buildRemoteCompactionHeaders(params: {
   model: Model<any>;
   apiKey: string;
   headers?: Record<string, string>;
   sessionId?: string;
 }): Record<string, string> {
+  const codexIdentityHeaders = buildCodexIdentityHeaders(params.sessionId);
   if (isDirectOpenAIResponsesModel(params.model)) {
     return {
       authorization: `Bearer ${params.apiKey}`,
-      ...(params.sessionId ? { session_id: params.sessionId } : {}),
+      ...codexIdentityHeaders,
       ...(params.headers ?? {}),
     };
   }
@@ -155,7 +210,7 @@ function buildRemoteCompactionHeaders(params: {
     return {
       authorization: `Bearer ${params.apiKey}`,
       "chatgpt-account-id": extractCodexAccountId(params.apiKey),
-      ...(params.sessionId ? { session_id: params.sessionId } : {}),
+      ...codexIdentityHeaders,
       originator: "pi",
       "user-agent": `pi-openai-server-compaction (${platform()} ${release()}; ${arch()})`,
       "OpenAI-Beta": "responses=experimental",
@@ -348,6 +403,179 @@ export function messagesToResponseItems(messages: AgentMessage[]): ResponseItem[
   return messages.flatMap((message) => messageToResponseItems(message));
 }
 
+function cloneResponseItem(item: ResponseItem): ResponseItem {
+  return JSON.parse(JSON.stringify(item)) as ResponseItem;
+}
+
+function responseItemCallId(item: ResponseItem): string | undefined {
+  const callId = item.call_id;
+  return typeof callId === "string" && callId ? callId : undefined;
+}
+
+function responseItemOutput(item: ResponseItem): unknown {
+  return item.output;
+}
+
+function syntheticOutputForCall(item: ResponseItem): ResponseItem | undefined {
+  const callId = responseItemCallId(item);
+  if (!callId) return undefined;
+
+  if (item.type === "function_call" || item.type === "local_shell_call") {
+    return { type: "function_call_output", call_id: callId, output: "aborted" };
+  }
+  if (item.type === "tool_search_call") {
+    return {
+      type: "tool_search_output",
+      call_id: callId,
+      status: "completed",
+      execution: "client",
+      tools: [],
+    };
+  }
+  if (item.type === "custom_tool_call") {
+    return { type: "custom_tool_call_output", call_id: callId, output: "aborted" };
+  }
+  return undefined;
+}
+
+function outputTypeForCallType(type: string): string | undefined {
+  if (type === "function_call" || type === "local_shell_call") return "function_call_output";
+  if (type === "tool_search_call") return "tool_search_output";
+  if (type === "custom_tool_call") return "custom_tool_call_output";
+  return undefined;
+}
+
+function ensureCallOutputsPresent(items: ResponseItem[]): ResponseItem[] {
+  const normalized: ResponseItem[] = [];
+  for (const item of items) {
+    normalized.push(item);
+    const outputType = outputTypeForCallType(item.type);
+    const callId = responseItemCallId(item);
+    if (!outputType || !callId) continue;
+
+    const hasOutput = items.some((candidate) => (
+      candidate.type === outputType &&
+      responseItemCallId(candidate) === callId
+    ));
+    if (!hasOutput) {
+      const synthetic = syntheticOutputForCall(item);
+      if (synthetic) normalized.push(synthetic);
+    }
+  }
+  return normalized;
+}
+
+function removeOrphanOutputs(items: ResponseItem[]): ResponseItem[] {
+  const functionCallIds = new Set<string>();
+  const toolSearchCallIds = new Set<string>();
+  const customToolCallIds = new Set<string>();
+
+  for (const item of items) {
+    const callId = responseItemCallId(item);
+    if (!callId) continue;
+    if (item.type === "function_call" || item.type === "local_shell_call") {
+      functionCallIds.add(callId);
+    } else if (item.type === "tool_search_call") {
+      toolSearchCallIds.add(callId);
+    } else if (item.type === "custom_tool_call") {
+      customToolCallIds.add(callId);
+    }
+  }
+
+  return items.filter((item) => {
+    const callId = responseItemCallId(item);
+    if (item.type === "function_call_output") {
+      return Boolean(callId && functionCallIds.has(callId));
+    }
+    if (item.type === "custom_tool_call_output") {
+      return Boolean(callId && customToolCallIds.has(callId));
+    }
+    if (item.type === "tool_search_output") {
+      if (item.execution === "server" || callId === undefined) return true;
+      return toolSearchCallIds.has(callId);
+    }
+    return true;
+  });
+}
+
+function modelSupportsImageInput(model: { input?: readonly unknown[] }): boolean {
+  return Array.isArray(model.input) && model.input.includes("image");
+}
+
+function stripUnsupportedImageContentItems(items: ResponseContentItem[]): ResponseContentItem[] {
+  return items.map((item) => (
+    item.type === "input_image"
+      ? { type: "input_text", text: IMAGE_CONTENT_OMITTED_PLACEHOLDER }
+      : item
+  ));
+}
+
+function stripUnsupportedFunctionOutputImages(output: unknown): unknown {
+  if (Array.isArray(output)) {
+    return output.map((item) => (
+      isRecord(item) && item.type === "input_image"
+        ? { type: "input_text", text: IMAGE_CONTENT_OMITTED_PLACEHOLDER }
+        : item
+    ));
+  }
+  if (isRecord(output) && Array.isArray(output.content)) {
+    return {
+      ...output,
+      content: stripUnsupportedFunctionOutputImages(output.content),
+    };
+  }
+  return output;
+}
+
+function stripImagesWhenUnsupported(items: ResponseItem[], model: { input?: readonly unknown[] }): ResponseItem[] {
+  if (modelSupportsImageInput(model)) return items;
+
+  return items.map((item) => {
+    const next = cloneResponseItem(item);
+    if (next.type === "message" && Array.isArray(next.content)) {
+      next.content = stripUnsupportedImageContentItems(next.content);
+    } else if (
+      (next.type === "function_call_output" || next.type === "custom_tool_call_output") &&
+      "output" in next
+    ) {
+      next.output = stripUnsupportedFunctionOutputImages(responseItemOutput(next));
+    } else if (next.type === "image_generation_call" && typeof next.result === "string") {
+      next.result = "";
+    }
+    return next;
+  });
+}
+
+export function normalizeResponseItemsForPrompt(
+  items: ResponseItem[],
+  model: { input?: readonly unknown[] },
+): ResponseItem[] {
+  const withoutGhostSnapshots = items
+    .filter((item) => item.type !== "ghost_snapshot")
+    .map(cloneResponseItem);
+  const withCallOutputs = ensureCallOutputsPresent(withoutGhostSnapshots);
+  const withoutOrphanOutputs = removeOrphanOutputs(withCallOutputs);
+  return stripImagesWhenUnsupported(withoutOrphanOutputs, model);
+}
+
+function isRealUserMessage(item: ResponseItem): boolean {
+  if (item.type !== "message" || item.role !== "user") return false;
+  if (typeof item.content === "string") return item.content.trim().length > 0;
+  return Array.isArray(item.content) && item.content.length > 0;
+}
+
+function shouldKeepCompactedHistoryItem(item: ResponseItem): boolean {
+  if (item.type === "message" && item.role === "developer") return false;
+  if (item.type === "message" && item.role === "user") return isRealUserMessage(item);
+  if (item.type === "message" && item.role === "assistant") return true;
+  if (item.type === "compaction" || item.type === "compaction_summary") return true;
+  return false;
+}
+
+export function processCompactedHistory(items: ResponseItem[]): ResponseItem[] {
+  return items.filter(shouldKeepCompactedHistoryItem).map(cloneResponseItem);
+}
+
 function toolInfoToResponseTool(tool: ToolInfo): Record<string, unknown> {
   return {
     type: "function",
@@ -416,6 +644,7 @@ export async function generateBestEffortLocalSummary(params: {
   headers?: Record<string, string>;
   customInstructions?: string;
   signal?: AbortSignal;
+  thinkingLevel?: ThinkingLevel;
   firstKeptEntryId: string;
   tokensBefore: number;
 }): Promise<CompactionResult> {
@@ -429,6 +658,7 @@ export async function generateBestEffortLocalSummary(params: {
       params.headers,
       params.customInstructions,
       params.signal,
+      params.thinkingLevel,
     );
   }
 }
@@ -442,6 +672,14 @@ function sanitizeResponseItems(items: unknown): ResponseItem[] {
     throw new Error("OpenAI remote compaction returned an empty output array.");
   }
   return normalized;
+}
+
+function sanitizeCompactedHistory(items: unknown): ResponseItem[] {
+  const processed = processCompactedHistory(sanitizeResponseItems(items));
+  if (processed.length === 0) {
+    throw new Error("OpenAI remote compaction returned no replayable history items.");
+  }
+  return processed;
 }
 
 function extractCacheWriteTokens(value: unknown): number {
@@ -590,7 +828,7 @@ export async function callRemoteCompactionEndpoint(params: {
 
   const json = (await response.json()) as { output?: unknown; usage?: unknown };
   return {
-    output: sanitizeResponseItems(json.output),
+    output: sanitizeCompactedHistory(json.output),
     usage: extractRemoteCompactionUsage(params.model, json.usage),
   };
 }

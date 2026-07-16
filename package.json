@@ -38,9 +38,9 @@
     "extensions": ["./src/index.ts"]
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*",
-    "@mariozechner/pi-ai": "*",
-    "@mariozechner/pi-agent-core": "*"
+    "@earendil-works/pi-coding-agent": "^0.80.9",
+    "@earendil-works/pi-ai": "^0.80.9",
+    "@earendil-works/pi-agent-core": "^0.80.9"
   },
   "scripts": {
     "smoke": "node --experimental-strip-types ./scripts/smoke.mjs",

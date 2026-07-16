@@ -7,7 +7,6 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const localNodeModules = join(repoRoot, "node_modules");
-const scopedNodeModules = join(localNodeModules, "@mariozechner");
 
 function packagePathSegments(packageName) {
   return packageName.split("/");
@@ -38,13 +37,13 @@ function candidateRoots() {
     "tools",
     "image",
     "packages",
-    "@mariozechner",
+    "@earendil-works",
     "pi-coding-agent",
     "lib",
     "node_modules",
   );
   roots.add(voltaPiRoot);
-  roots.add(join(voltaPiRoot, "@mariozechner", "pi-coding-agent", "node_modules"));
+  roots.add(join(voltaPiRoot, "@earendil-works", "pi-coding-agent", "node_modules"));
 
   return [...roots];
 }
@@ -85,9 +84,9 @@ function ensureLocalPeerLink(packageName) {
 }
 
 for (const packageName of [
-  "@mariozechner/pi-coding-agent",
-  "@mariozechner/pi-agent-core",
-  "@mariozechner/pi-ai",
+  "@earendil-works/pi-coding-agent",
+  "@earendil-works/pi-agent-core",
+  "@earendil-works/pi-ai",
 ]) {
   ensureLocalPeerLink(packageName);
 }
@@ -96,9 +95,13 @@ const { default: extensionFactory } = await import(pathToFileURL(join(repoRoot, 
 assert.equal(typeof extensionFactory, "function", "extension entrypoint should export a function");
 
 const {
+  buildCodexWebSocketHeaders,
+  buildRemoteCompactionHeaders,
   buildRemoteCompactionDetails,
   buildRemoteCompactionRequestBody,
   extractRemoteCompactionDetails,
+  normalizeResponseItemsForPrompt,
+  processCompactedHistory,
   reconstructRemoteCompactionStateFromBranch,
 } = await import(pathToFileURL(join(repoRoot, "src", "remote-compaction.ts")).href);
 const {
@@ -207,6 +210,65 @@ const requestBody = buildRemoteCompactionRequestBody({
 assert.equal(requestBody.model, "gpt-5.4-nano");
 assert.deepEqual(requestBody.reasoning, { effort: "high", summary: "auto" });
 assert.deepEqual(requestBody.text, { verbosity: "medium" });
+
+const normalizedPromptItems = normalizeResponseItemsForPrompt(
+  [
+    { type: "ghost_snapshot", data: "hidden" },
+    {
+      type: "message",
+      role: "user",
+      content: [{ type: "input_image", image_url: "data:image/png;base64,AAAA" }],
+    },
+    { type: "function_call", name: "read", call_id: "call-1", arguments: "{}" },
+    { type: "function_call_output", call_id: "orphan", output: "drop" },
+    { type: "image_generation_call", result: "base64" },
+  ],
+  { input: ["text"] },
+);
+assert.equal(normalizedPromptItems[0].type, "message");
+assert.deepEqual(normalizedPromptItems[0].content, [
+  { type: "input_text", text: "image content omitted because you do not support image input" },
+]);
+assert.deepEqual(normalizedPromptItems[2], {
+  type: "function_call_output",
+  call_id: "call-1",
+  output: "aborted",
+});
+assert.equal(normalizedPromptItems[3].result, "");
+assert.doesNotMatch(JSON.stringify(normalizedPromptItems), /orphan|ghost_snapshot/);
+
+const compactedHistory = processCompactedHistory([
+  { type: "message", role: "developer", content: [{ type: "input_text", text: "drop developer" }] },
+  { type: "message", role: "user", content: [] },
+  { type: "message", role: "user", content: [{ type: "input_text", text: "keep user" }] },
+  { type: "message", role: "assistant", content: [{ type: "output_text", text: "keep assistant" }] },
+  { type: "function_call", name: "read", call_id: "call-2", arguments: "{}" },
+  { type: "compaction", encrypted_content: "keep" },
+]);
+assert.deepEqual(compactedHistory.map((item) => item.type), ["message", "message", "compaction"]);
+assert.equal(compactedHistory[0].role, "user");
+assert.equal(compactedHistory[1].role, "assistant");
+
+const compactionHeaders = buildRemoteCompactionHeaders({
+  model: {
+    provider: "openai",
+    api: "openai-responses",
+    id: "gpt-5.4-nano",
+  },
+  apiKey: "sk-test",
+  sessionId: "session-123",
+  headers: { "x-extra": "yes" },
+});
+assert.equal(compactionHeaders.authorization, "Bearer sk-test");
+assert.equal(compactionHeaders.session_id, "session-123");
+assert.equal(compactionHeaders["x-codex-window-id"], "session-123:0");
+assert.match(compactionHeaders["x-codex-installation-id"], /^[0-9a-f-]{36}$/);
+assert.equal(compactionHeaders["x-extra"], "yes");
+
+const websocketHeaders = buildCodexWebSocketHeaders("session-123");
+assert.equal(websocketHeaders["x-client-request-id"], "session-123");
+assert.equal(websocketHeaders.session_id, "session-123");
+assert.equal(websocketHeaders["x-codex-window-id"], "session-123:0");
 
 const detailsRoundTrip = extractRemoteCompactionDetails({
   remoteCompaction: buildRemoteCompactionDetails(

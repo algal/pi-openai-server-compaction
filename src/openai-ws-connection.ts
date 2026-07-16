@@ -160,6 +160,7 @@ export interface OpenAIWebSocketManagerOptions {
   url?: string;
   maxRetries?: number;
   backoffDelaysMs?: readonly number[];
+  headers?: Record<string, string>;
 }
 
 export class OpenAIWebSocketManager extends EventEmitter {
@@ -172,12 +173,14 @@ export class OpenAIWebSocketManager extends EventEmitter {
   private readonly wsUrl: string;
   private readonly maxRetries: number;
   private readonly backoffDelaysMs: readonly number[];
+  private readonly headers: Record<string, string>;
 
   constructor(options: OpenAIWebSocketManagerOptions = {}) {
     super();
     this.wsUrl = options.url ?? OPENAI_WS_URL;
     this.maxRetries = options.maxRetries ?? MAX_RETRIES;
     this.backoffDelaysMs = options.backoffDelaysMs ?? BACKOFF_DELAYS_MS;
+    this.headers = options.headers ?? {};
   }
 
   get previousResponseId(): string | null {
@@ -243,7 +246,8 @@ export class OpenAIWebSocketManager extends EventEmitter {
     return new WebSocketCtor(this.wsUrl, {
       headers: {
         Authorization: `Bearer ${this.apiKey}`,
-        "OpenAI-Beta": "responses-websocket=v1",
+        "OpenAI-Beta": "responses_websockets=2026-02-06",
+        ...this.headers,
       },
     });
   }
