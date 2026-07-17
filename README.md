@@ -1,12 +1,14 @@
 # pi-openai-server-compaction
 
-Pi extension that adds **Codex-style remote compaction** for OpenAI models, giving you better continuity across compaction boundaries while preserving all of Pi's normal features.
+This is a Pi extension which adds **Codex-style remote compaction** for OpenAI models, giving you better continuity across compaction boundaries while preserving all of Pi's normal features.
 
-Why would you want this? Codex seems to compact better than Claude Code, and Codex compacts by using OpenAI's server-side Responses compaction protocol. The current protocol sends a `compaction_trigger` through `POST /v1/responses` and receives an encrypted `compaction` item. This extension configures Pi to use that protocol for OpenAI models alongside Pi's native compaction logic.
+What does that mean? Why would you want it? My impression has been that Codex compacts better than Claude Code and better than Pi. And I supposed this was because Codex compacts by using OpenAI's server-side Responses compaction protocol. That protocol sends a `compaction_trigger` through `POST /v1/responses` and receives an encrypted `compaction` item. This extension configures Pi to use that protocol for OpenAI models alongside Pi's native compaction logic.
 
-But is Codex's compaction _actually_ better? Is OpenAI doing something special in its server-side compaction endpoint? I thought so when I started this extension, but then I found this clever reverse engineering which shows that, apparently, they are not: https://x.com/alexisgallagher/status/2042396986327060736?s=20 .
+But is Codex's compaction _actually_ better? Since the OpenAI compaction endpoint compacts to encrypted binary blobs, no one can say what it is doing under the hood. However, we don't need to know how it works to determine if it works better. Anyone can call the endpoint. And since codex is an open source, we can mimic exactly how codex itself uses the endpoint. That is what this extension configures Pi to do.
 
-So if OpenAI's remote compaction protocol is not doing anything special, then using it alongside Pi's compaction logic might provide little benefit. In this case, you don't need this extension at all! But if you still believe Codex is doing something special with compaction, and you want to configure Pi to mimic what Codex does as closely as possible, then this extension is for you. If OpenAI changes what its compaction protocol does beneath the cover of encryption, this extension also lets Pi consume those provider-native artifacts.
+So is native compaction better? Yes, I think so. I tasked GPT-5.6 Sol to run a controlled benchmark, and it found 100% recall from native compaction versus 82.8% for a balanced token-budget-matched text summary and 76.7% for a dense task-first variant. This shows a behavioral advantage in the tested regime. So this matches my own personal experience operating both these systems. 
+
+This result does not prove the encrypted blobs use any clever latent-space representation. They might just be encrypted optimized text or structured state values of some kind. (A little reverse engineering suggests the blogs are produced through a textual prompt, for what it is worth: https://x.com/alexisgallagher/status/2042396986327060736?s=20 .) See the [standalone report](benchmarks/native-vs-text/REPORT.md) and [reproduction instructions](benchmarks/native-vs-text/README.md) for the protocol, retained evidence, and limitations.
 
 > **Status:** experimental but live-tested against real Pi + real OpenAI backends.
 > Recommended rollout: install project-local first, use for a week, keep rollback easy.
