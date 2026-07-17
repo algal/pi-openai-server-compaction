@@ -1,0 +1,44 @@
+{
+  "variant": "dense-task-first-text-summary",
+  "prompt": "Create a maximally dense, loss-minimizing continuation state dump for another model. The later questions are unknown.\n\nOrder the dump as follows so late state cannot be lost: (1) current task checkpoint and every work-item state, blocker, next action, and hard constraint; (2) every final correction and which values are obsolete; (3) every exact tool/probe result; (4) every direct relationship; (5) every exact active-project parameter and base fact.\n\nCopy identifiers and values exactly. Include every numbered active-project ledger entry, not merely examples. Use compact section labels and semicolon-delimited key=value or source->target records. Spend no tokens paraphrasing unrelated archive distractors, acknowledgements, or obvious prose. Do not answer future questions or continue the work. Continue until every authoritative active-project record has been captured.",
+  "trials": 12,
+  "aggregate": {
+    "correct": 690,
+    "total": 900
+  },
+  "byCategory": {
+    "exact_recall": {
+      "correct": 27,
+      "total": 180
+    },
+    "relational_state": {
+      "correct": 123,
+      "total": 180
+    },
+    "tool_history": {
+      "correct": 180,
+      "total": 180
+    },
+    "distractor_resolution": {
+      "correct": 180,
+      "total": 180
+    },
+    "task_continuation": {
+      "correct": 180,
+      "total": 180
+    }
+  },
+  "pairedVsNative": {
+    "bothCorrect": 690,
+    "nativeOnly": 210,
+    "denseOnly": 0,
+    "bothWrong": 0
+  },
+  "usage": {
+    "meanBudgetTokens": 5939.916666666667,
+    "meanOutputTokens": 5939.916666666667,
+    "meanDownstreamInputTokens": 8856.833333333334,
+    "meanSummaryCostUsd": 0.2754859583333334,
+    "meanEvaluationCostUsd": 0.08839166666666666
+  }
+}

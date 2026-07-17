@@ -1,0 +1,3395 @@
+{
+  "manifest": {
+    "benchmark": "native-vs-token-matched-text-compaction",
+    "createdAt": "2026-07-17T01:51:59.795Z",
+    "model": "openai/gpt-5.6-sol",
+    "fixtureCount": 6,
+    "trials": 2,
+    "categories": [
+      "exact_recall",
+      "relational_state",
+      "tool_history",
+      "distractor_resolution",
+      "task_continuation"
+    ],
+    "questionsPerFixture": 75,
+    "nativeProtocol": "Responses compaction v2 via compaction_trigger",
+    "textBudgetRule": "max_output_tokens equals native compaction output_tokens for the paired trial",
+    "evaluator": "same model, low reasoning, strict JSON schema, exact string scoring",
+    "encryptedArtifactsStored": false
+  },
+  "completedTrials": 12,
+  "byArm": {
+    "full_context": {
+      "correct": 900,
+      "total": 900,
+      "accuracy": 1,
+      "wilson95": [
+        0.9957496977346473,
+        0.9999999999999999
+      ]
+    },
+    "native_compaction": {
+      "correct": 900,
+      "total": 900,
+      "accuracy": 1,
+      "wilson95": [
+        0.9957496977346473,
+        0.9999999999999999
+      ]
+    },
+    "text_summary": {
+      "correct": 745,
+      "total": 900,
+      "accuracy": 0.8277777777777777,
+      "wilson95": [
+        0.8017295766654193,
+        0.8510396696272937
+      ]
+    }
+  },
+  "byCategory": {
+    "exact_recall": {
+      "full_context": {
+        "correct": 180,
+        "total": 180,
+        "accuracy": 1,
+        "wilson95": [
+          0.9791037501849418,
+          1
+        ]
+      },
+      "native_compaction": {
+        "correct": 180,
+        "total": 180,
+        "accuracy": 1,
+        "wilson95": [
+          0.9791037501849418,
+          1
+        ]
+      },
+      "text_summary": {
+        "correct": 180,
+        "total": 180,
+        "accuracy": 1,
+        "wilson95": [
+          0.9791037501849418,
+          1
+        ]
+      }
+    },
+    "relational_state": {
+      "full_context": {
+        "correct": 180,
+        "total": 180,
+        "accuracy": 1,
+        "wilson95": [
+          0.9791037501849418,
+          1
+        ]
+      },
+      "native_compaction": {
+        "correct": 180,
+        "total": 180,
+        "accuracy": 1,
+        "wilson95": [
+          0.9791037501849418,
+          1
+        ]
+      },
+      "text_summary": {
+        "correct": 180,
+        "total": 180,
+        "accuracy": 1,
+        "wilson95": [
+          0.9791037501849418,
+          1
+        ]
+      }
+    },
+    "tool_history": {
+      "full_context": {
+        "correct": 180,
+        "total": 180,
+        "accuracy": 1,
+        "wilson95": [
+          0.9791037501849418,
+          1
+        ]
+      },
+      "native_compaction": {
+        "correct": 180,
+        "total": 180,
+        "accuracy": 1,
+        "wilson95": [
+          0.9791037501849418,
+          1
+        ]
+      },
+      "text_summary": {
+        "correct": 169,
+        "total": 180,
+        "accuracy": 0.9388888888888889,
+        "wilson95": [
+          0.8938978709273628,
+          0.965537643123864
+        ]
+      }
+    },
+    "distractor_resolution": {
+      "full_context": {
+        "correct": 180,
+        "total": 180,
+        "accuracy": 1,
+        "wilson95": [
+          0.9791037501849418,
+          1
+        ]
+      },
+      "native_compaction": {
+        "correct": 180,
+        "total": 180,
+        "accuracy": 1,
+        "wilson95": [
+          0.9791037501849418,
+          1
+        ]
+      },
+      "text_summary": {
+        "correct": 152,
+        "total": 180,
+        "accuracy": 0.8444444444444444,
+        "wilson95": [
+          0.784363054834744,
+          0.8901306397371049
+        ]
+      }
+    },
+    "task_continuation": {
+      "full_context": {
+        "correct": 180,
+        "total": 180,
+        "accuracy": 1,
+        "wilson95": [
+          0.9791037501849418,
+          1
+        ]
+      },
+      "native_compaction": {
+        "correct": 180,
+        "total": 180,
+        "accuracy": 1,
+        "wilson95": [
+          0.9791037501849418,
+          1
+        ]
+      },
+      "text_summary": {
+        "correct": 64,
+        "total": 180,
+        "accuracy": 0.35555555555555557,
+        "wilson95": [
+          0.28931215725066883,
+          0.42783564825145926
+        ]
+      }
+    }
+  },
+  "perFixture": {
+    "fixture-01": {
+      "full_context": {
+        "correct": 150,
+        "total": 150,
+        "accuracy": 1,
+        "wilson95": [
+          0.9750288608542812,
+          1
+        ]
+      },
+      "native_compaction": {
+        "correct": 150,
+        "total": 150,
+        "accuracy": 1,
+        "wilson95": [
+          0.9750288608542812,
+          1
+        ]
+      },
+      "text_summary": {
+        "correct": 109,
+        "total": 150,
+        "accuracy": 0.7266666666666667,
+        "wilson95": [
+          0.6503534444650609,
+          0.7916596391222133
+        ]
+      }
+    },
+    "fixture-02": {
+      "full_context": {
+        "correct": 150,
+        "total": 150,
+        "accuracy": 1,
+        "wilson95": [
+          0.9750288608542812,
+          1
+        ]
+      },
+      "native_compaction": {
+        "correct": 150,
+        "total": 150,
+        "accuracy": 1,
+        "wilson95": [
+          0.9750288608542812,
+          1
+        ]
+      },
+      "text_summary": {
+        "correct": 144,
+        "total": 150,
+        "accuracy": 0.96,
+        "wilson95": [
+          0.9154854608728422,
+          0.9815410911130964
+        ]
+      }
+    },
+    "fixture-03": {
+      "full_context": {
+        "correct": 150,
+        "total": 150,
+        "accuracy": 1,
+        "wilson95": [
+          0.9750288608542812,
+          1
+        ]
+      },
+      "native_compaction": {
+        "correct": 150,
+        "total": 150,
+        "accuracy": 1,
+        "wilson95": [
+          0.9750288608542812,
+          1
+        ]
+      },
+      "text_summary": {
+        "correct": 130,
+        "total": 150,
+        "accuracy": 0.8666666666666667,
+        "wilson95": [
+          0.8030184935523371,
+          0.9120026710741359
+        ]
+      }
+    },
+    "fixture-04": {
+      "full_context": {
+        "correct": 150,
+        "total": 150,
+        "accuracy": 1,
+        "wilson95": [
+          0.9750288608542812,
+          1
+        ]
+      },
+      "native_compaction": {
+        "correct": 150,
+        "total": 150,
+        "accuracy": 1,
+        "wilson95": [
+          0.9750288608542812,
+          1
+        ]
+      },
+      "text_summary": {
+        "correct": 108,
+        "total": 150,
+        "accuracy": 0.72,
+        "wilson95": [
+          0.6433420194970179,
+          0.7856706792788659
+        ]
+      }
+    },
+    "fixture-05": {
+      "full_context": {
+        "correct": 150,
+        "total": 150,
+        "accuracy": 1,
+        "wilson95": [
+          0.9750288608542812,
+          1
+        ]
+      },
+      "native_compaction": {
+        "correct": 150,
+        "total": 150,
+        "accuracy": 1,
+        "wilson95": [
+          0.9750288608542812,
+          1
+        ]
+      },
+      "text_summary": {
+        "correct": 128,
+        "total": 150,
+        "accuracy": 0.8533333333333334,
+        "wilson95": [
+          0.7879140446419707,
+          0.9011063503617215
+        ]
+      }
+    },
+    "fixture-06": {
+      "full_context": {
+        "correct": 150,
+        "total": 150,
+        "accuracy": 1,
+        "wilson95": [
+          0.9750288608542812,
+          1
+        ]
+      },
+      "native_compaction": {
+        "correct": 150,
+        "total": 150,
+        "accuracy": 1,
+        "wilson95": [
+          0.9750288608542812,
+          1
+        ]
+      },
+      "text_summary": {
+        "correct": 126,
+        "total": 150,
+        "accuracy": 0.84,
+        "wilson95": [
+          0.772958942656478,
+          0.8900606827244333
+        ]
+      }
+    }
+  },
+  "pairedNativeVsText": {
+    "bothCorrect": 745,
+    "nativeOnly": 155,
+    "textOnly": 0,
+    "bothWrong": 0,
+    "exactMcNemarP": 4.3790577010150533e-47
+  },
+  "usage": {
+    "nativeCompaction": {
+      "meanLatencyMs": 48478.75,
+      "meanInputTokens": 40,
+      "meanCacheWriteTokens": 34886.166666666664,
+      "meanProcessedInputTokens": 34926.166666666664,
+      "meanOutputTokens": 5939.916666666667,
+      "meanCostUsd": 0.39643604166666674,
+      "meanArtifactBytes": 21614
+    },
+    "textSummary": {
+      "meanLatencyMs": 47760.166666666664,
+      "meanInputTokens": 17638.083333333332,
+      "meanProcessedInputTokens": 35273.166666666664,
+      "meanOutputTokens": 5842.416666666667,
+      "meanCostUsd": 0.27228045833333336,
+      "meanCharacters": 14817.666666666666,
+      "meanNativeBudgetTokens": 5939.916666666667
+    },
+    "evaluation": {
+      "full_context": {
+        "meanLatencyMs": 15568,
+        "meanInputTokens": 18841.666666666668,
+        "meanProcessedInputTokens": 37608.333333333336,
+        "meanOutputTokens": 1568.75,
+        "meanCostUsd": 0.15065416666666664
+      },
+      "native_compaction": {
+        "meanLatencyMs": 13731.666666666666,
+        "meanInputTokens": 8836.083333333334,
+        "meanProcessedInputTokens": 8836.083333333334,
+        "meanOutputTokens": 1563.1666666666667,
+        "meanCostUsd": 0.09107541666666669
+      },
+      "text_summary": {
+        "meanLatencyMs": 15162.416666666666,
+        "meanInputTokens": 8758.166666666666,
+        "meanProcessedInputTokens": 8758.166666666666,
+        "meanOutputTokens": 1598.6666666666667,
+        "meanCostUsd": 0.09175083333333334
+      }
+    },
+    "totalRecordedCostUsd": 12.026363
+  },
+  "exactRealizedBudget": {
+    "trials": 11,
+    "native": {
+      "correct": 825,
+      "total": 825,
+      "accuracy": 1,
+      "wilson95": [
+        0.9953650975047583,
+        0.9999999999999998
+      ]
+    },
+    "text": {
+      "correct": 670,
+      "total": 825,
+      "accuracy": 0.8121212121212121,
+      "wilson95": [
+        0.7840421023392072,
+        0.8373070191334602
+      ]
+    },
+    "meanNativeDownstreamInputTokens": 8770.636363636364,
+    "meanTextDownstreamInputTokens": 8790.363636363636
+  },
+  "disagreements": [
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-1",
+        "category": "task_continuation",
+        "expected": "schema-1-migration",
+        "actual": "schema-1-migration",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-1",
+        "category": "task_continuation",
+        "expected": "schema-1-migration",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-2",
+        "category": "task_continuation",
+        "expected": "backfill-project-1",
+        "actual": "backfill-project-1",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-2",
+        "category": "task_continuation",
+        "expected": "backfill-project-1",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-3",
+        "category": "task_continuation",
+        "expected": "cutover-project-1",
+        "actual": "cutover-project-1",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-3",
+        "category": "task_continuation",
+        "expected": "cutover-project-1",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-4",
+        "category": "task_continuation",
+        "expected": "approval-amber-juniper-4c0f56525e67",
+        "actual": "approval-amber-juniper-4c0f56525e67",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-4",
+        "category": "task_continuation",
+        "expected": "approval-amber-juniper-4c0f56525e67",
+        "actual": "Expected stable ordering but got inversion",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-5",
+        "category": "task_continuation",
+        "expected": "verify-batch-901",
+        "actual": "verify-batch-901",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-5",
+        "category": "task_continuation",
+        "expected": "verify-batch-901",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-distractor_resolution-11",
+        "category": "distractor_resolution",
+        "expected": "final-frozen-nebula-5dab66533fd3",
+        "actual": "final-frozen-nebula-5dab66533fd3",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-distractor_resolution-11",
+        "category": "distractor_resolution",
+        "expected": "final-frozen-nebula-5dab66533fd3",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-distractor_resolution-12",
+        "category": "distractor_resolution",
+        "expected": "final-hidden-meteor-1439ffccdec6",
+        "actual": "final-hidden-meteor-1439ffccdec6",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-distractor_resolution-12",
+        "category": "distractor_resolution",
+        "expected": "final-hidden-meteor-1439ffccdec6",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-distractor_resolution-13",
+        "category": "distractor_resolution",
+        "expected": "final-daring-meteor-f19b5dcd9f44",
+        "actual": "final-daring-meteor-f19b5dcd9f44",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-distractor_resolution-13",
+        "category": "distractor_resolution",
+        "expected": "final-daring-meteor-f19b5dcd9f44",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-distractor_resolution-14",
+        "category": "distractor_resolution",
+        "expected": "final-cobalt-isotope-e4d8542404ab",
+        "actual": "final-cobalt-isotope-e4d8542404ab",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-distractor_resolution-14",
+        "category": "distractor_resolution",
+        "expected": "final-cobalt-isotope-e4d8542404ab",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-distractor_resolution-15",
+        "category": "distractor_resolution",
+        "expected": "final-frozen-meteor-e9117af64e0b",
+        "actual": "final-frozen-meteor-e9117af64e0b",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-distractor_resolution-15",
+        "category": "distractor_resolution",
+        "expected": "final-frozen-meteor-e9117af64e0b",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-6",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-6",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-7",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-7",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-8",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-8",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-9",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-9",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-10",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-10",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-11",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-11",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-12",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-12",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-1",
+        "category": "task_continuation",
+        "expected": "schema-1-migration",
+        "actual": "schema-1-migration",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-1",
+        "category": "task_continuation",
+        "expected": "schema-1-migration",
+        "actual": "edit /srv/project-1/src/envelope.ts",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-2",
+        "category": "task_continuation",
+        "expected": "backfill-project-1",
+        "actual": "backfill-project-1",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-2",
+        "category": "task_continuation",
+        "expected": "backfill-project-1",
+        "actual": "verify normalizeProject1Envelope edit",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-3",
+        "category": "task_continuation",
+        "expected": "cutover-project-1",
+        "actual": "cutover-project-1",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-3",
+        "category": "task_continuation",
+        "expected": "cutover-project-1",
+        "actual": "production cutover",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-4",
+        "category": "task_continuation",
+        "expected": "approval-amber-juniper-4c0f56525e67",
+        "actual": "approval-amber-juniper-4c0f56525e67",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-4",
+        "category": "task_continuation",
+        "expected": "approval-amber-juniper-4c0f56525e67",
+        "actual": "reconcile_epoch_1_preserves_order remains unresolved",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-5",
+        "category": "task_continuation",
+        "expected": "verify-batch-901",
+        "actual": "verify-batch-901",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-5",
+        "category": "task_continuation",
+        "expected": "verify-batch-901",
+        "actual": "rerun npm test -- project-1",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-tool_history-10",
+        "category": "tool_history",
+        "expected": "tool-result-hidden-keystone-6432793ff006",
+        "actual": "tool-result-hidden-keystone-6432793ff006",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-tool_history-10",
+        "category": "tool_history",
+        "expected": "tool-result-hidden-keystone-6432793ff006",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-tool_history-11",
+        "category": "tool_history",
+        "expected": "tool-result-brisk-juniper-4b774226e1ee",
+        "actual": "tool-result-brisk-juniper-4b774226e1ee",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-tool_history-11",
+        "category": "tool_history",
+        "expected": "tool-result-brisk-juniper-4b774226e1ee",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-tool_history-12",
+        "category": "tool_history",
+        "expected": "tool-result-ember-meteor-b36ae68f624f",
+        "actual": "tool-result-ember-meteor-b36ae68f624f",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-tool_history-12",
+        "category": "tool_history",
+        "expected": "tool-result-ember-meteor-b36ae68f624f",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-tool_history-13",
+        "category": "tool_history",
+        "expected": "tool-result-hidden-harbor-8e7d2a370023",
+        "actual": "tool-result-hidden-harbor-8e7d2a370023",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-tool_history-13",
+        "category": "tool_history",
+        "expected": "tool-result-hidden-harbor-8e7d2a370023",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-tool_history-14",
+        "category": "tool_history",
+        "expected": "tool-result-frozen-falcon-41cea1e61196",
+        "actual": "tool-result-frozen-falcon-41cea1e61196",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-tool_history-14",
+        "category": "tool_history",
+        "expected": "tool-result-frozen-falcon-41cea1e61196",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-tool_history-15",
+        "category": "tool_history",
+        "expected": "tool-result-cobalt-meteor-d2843c9d022a",
+        "actual": "tool-result-cobalt-meteor-d2843c9d022a",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-tool_history-15",
+        "category": "tool_history",
+        "expected": "tool-result-cobalt-meteor-d2843c9d022a",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-6",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-6",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-7",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-7",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-8",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-8",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-9",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-9",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-10",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-10",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-11",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-11",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-12",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-12",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-01",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-01-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-01-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-02",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-02-task_continuation-12",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-02-task_continuation-12",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "UNKNOWN",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-02",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-02-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "IN_PROGRESS",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-02-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "UNKNOWN",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-02",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-02-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-02-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "UNKNOWN",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-02",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-02-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-02-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "UNKNOWN",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-02",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-02-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-02-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "UNKNOWN",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-02",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-02-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-02-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "UNKNOWN",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-task_continuation-1",
+        "category": "task_continuation",
+        "expected": "schema-3-migration",
+        "actual": "schema-3-migration",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-task_continuation-1",
+        "category": "task_continuation",
+        "expected": "schema-3-migration",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-task_continuation-2",
+        "category": "task_continuation",
+        "expected": "backfill-project-3",
+        "actual": "backfill-project-3",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-task_continuation-2",
+        "category": "task_continuation",
+        "expected": "backfill-project-3",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-task_continuation-3",
+        "category": "task_continuation",
+        "expected": "cutover-project-3",
+        "actual": "cutover-project-3",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-task_continuation-3",
+        "category": "task_continuation",
+        "expected": "cutover-project-3",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-task_continuation-4",
+        "category": "task_continuation",
+        "expected": "approval-frozen-lantern-58a7ba10832f",
+        "actual": "approval-frozen-lantern-58a7ba10832f",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-task_continuation-4",
+        "category": "task_continuation",
+        "expected": "approval-frozen-lantern-58a7ba10832f",
+        "actual": "reconcile_epoch_3_preserves_order",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-task_continuation-5",
+        "category": "task_continuation",
+        "expected": "verify-batch-903",
+        "actual": "verify-batch-903",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-task_continuation-5",
+        "category": "task_continuation",
+        "expected": "verify-batch-903",
+        "actual": "npm test -- project-3",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-tool_history-11",
+        "category": "tool_history",
+        "expected": "tool-result-ember-juniper-4b2fe4fd52bc",
+        "actual": "tool-result-ember-juniper-4b2fe4fd52bc",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-tool_history-11",
+        "category": "tool_history",
+        "expected": "tool-result-ember-juniper-4b2fe4fd52bc",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-tool_history-12",
+        "category": "tool_history",
+        "expected": "tool-result-daring-nebula-32bed28165fc",
+        "actual": "tool-result-daring-nebula-32bed28165fc",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-tool_history-12",
+        "category": "tool_history",
+        "expected": "tool-result-daring-nebula-32bed28165fc",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-tool_history-13",
+        "category": "tool_history",
+        "expected": "tool-result-amber-falcon-a171f280f8b4",
+        "actual": "tool-result-amber-falcon-a171f280f8b4",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-tool_history-13",
+        "category": "tool_history",
+        "expected": "tool-result-amber-falcon-a171f280f8b4",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-tool_history-14",
+        "category": "tool_history",
+        "expected": "tool-result-amber-juniper-827ca0b8790b",
+        "actual": "tool-result-amber-juniper-827ca0b8790b",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-tool_history-14",
+        "category": "tool_history",
+        "expected": "tool-result-amber-juniper-827ca0b8790b",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-tool_history-15",
+        "category": "tool_history",
+        "expected": "tool-result-frozen-isotope-76f488b6f5a2",
+        "actual": "tool-result-frozen-isotope-76f488b6f5a2",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-tool_history-15",
+        "category": "tool_history",
+        "expected": "tool-result-frozen-isotope-76f488b6f5a2",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-task_continuation-6",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-task_continuation-6",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-task_continuation-7",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-task_continuation-7",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-task_continuation-8",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "IN_PROGRESS",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-task_continuation-8",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-task_continuation-9",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "IN_PROGRESS",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-task_continuation-9",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-task_continuation-10",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-task_continuation-10",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-task_continuation-11",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "IN_PROGRESS",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-task_continuation-11",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-task_continuation-12",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "VERIFYING",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-task_continuation-12",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "IN_PROGRESS",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-03",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-03-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "VERIFYING",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-03-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-1",
+        "category": "task_continuation",
+        "expected": "schema-4-migration",
+        "actual": "schema-4-migration",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-1",
+        "category": "task_continuation",
+        "expected": "schema-4-migration",
+        "actual": "normalizeProject4Envelope edit",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-2",
+        "category": "task_continuation",
+        "expected": "backfill-project-4",
+        "actual": "backfill-project-4",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-2",
+        "category": "task_continuation",
+        "expected": "backfill-project-4",
+        "actual": "repair stable ordering",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-3",
+        "category": "task_continuation",
+        "expected": "cutover-project-4",
+        "actual": "cutover-project-4",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-3",
+        "category": "task_continuation",
+        "expected": "cutover-project-4",
+        "actual": "cutover",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-4",
+        "category": "task_continuation",
+        "expected": "approval-amber-isotope-cb06b91b79b7",
+        "actual": "approval-amber-isotope-cb06b91b79b7",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-4",
+        "category": "task_continuation",
+        "expected": "approval-amber-isotope-cb06b91b79b7",
+        "actual": "reconcile_epoch_4_preserves_order is still failing: Expected stable ordering but got inversion",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-5",
+        "category": "task_continuation",
+        "expected": "verify-batch-904",
+        "actual": "verify-batch-904",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-5",
+        "category": "task_continuation",
+        "expected": "verify-batch-904",
+        "actual": "rerun npm test -- project-4 after repair",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-distractor_resolution-9",
+        "category": "distractor_resolution",
+        "expected": "final-cobalt-falcon-0abf7ff40644",
+        "actual": "final-cobalt-falcon-0abf7ff40644",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-distractor_resolution-9",
+        "category": "distractor_resolution",
+        "expected": "final-cobalt-falcon-0abf7ff40644",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-distractor_resolution-10",
+        "category": "distractor_resolution",
+        "expected": "final-daring-falcon-b81a3568df48",
+        "actual": "final-daring-falcon-b81a3568df48",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-distractor_resolution-10",
+        "category": "distractor_resolution",
+        "expected": "final-daring-falcon-b81a3568df48",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-distractor_resolution-11",
+        "category": "distractor_resolution",
+        "expected": "final-cobalt-harbor-2cd31a6cd571",
+        "actual": "final-cobalt-harbor-2cd31a6cd571",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-distractor_resolution-11",
+        "category": "distractor_resolution",
+        "expected": "final-cobalt-harbor-2cd31a6cd571",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-distractor_resolution-12",
+        "category": "distractor_resolution",
+        "expected": "final-amber-keystone-e73367d76341",
+        "actual": "final-amber-keystone-e73367d76341",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-distractor_resolution-12",
+        "category": "distractor_resolution",
+        "expected": "final-amber-keystone-e73367d76341",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-distractor_resolution-13",
+        "category": "distractor_resolution",
+        "expected": "final-cobalt-lantern-c8126bb41178",
+        "actual": "final-cobalt-lantern-c8126bb41178",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-distractor_resolution-13",
+        "category": "distractor_resolution",
+        "expected": "final-cobalt-lantern-c8126bb41178",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-distractor_resolution-14",
+        "category": "distractor_resolution",
+        "expected": "final-ember-juniper-808bbe275fa4",
+        "actual": "final-ember-juniper-808bbe275fa4",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-distractor_resolution-14",
+        "category": "distractor_resolution",
+        "expected": "final-ember-juniper-808bbe275fa4",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-distractor_resolution-15",
+        "category": "distractor_resolution",
+        "expected": "final-frozen-harbor-e688b123fb81",
+        "actual": "final-frozen-harbor-e688b123fb81",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-distractor_resolution-15",
+        "category": "distractor_resolution",
+        "expected": "final-frozen-harbor-e688b123fb81",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-6",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-6",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-7",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "VERIFYING",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-7",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-8",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "IN_PROGRESS",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-8",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-9",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-9",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-10",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-10",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-11",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-11",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-12",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "VERIFYING",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-12",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "VERIFYING",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-1",
+        "category": "task_continuation",
+        "expected": "schema-4-migration",
+        "actual": "schema-4-migration",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-1",
+        "category": "task_continuation",
+        "expected": "schema-4-migration",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-2",
+        "category": "task_continuation",
+        "expected": "backfill-project-4",
+        "actual": "backfill-project-4",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-2",
+        "category": "task_continuation",
+        "expected": "backfill-project-4",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-3",
+        "category": "task_continuation",
+        "expected": "cutover-project-4",
+        "actual": "cutover-project-4",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-3",
+        "category": "task_continuation",
+        "expected": "cutover-project-4",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-4",
+        "category": "task_continuation",
+        "expected": "approval-amber-isotope-cb06b91b79b7",
+        "actual": "approval-amber-isotope-cb06b91b79b7",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-4",
+        "category": "task_continuation",
+        "expected": "approval-amber-isotope-cb06b91b79b7",
+        "actual": "Expected stable ordering but got inversion",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-5",
+        "category": "task_continuation",
+        "expected": "verify-batch-904",
+        "actual": "verify-batch-904",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-5",
+        "category": "task_continuation",
+        "expected": "verify-batch-904",
+        "actual": "Retest reconcile_epoch_4_preserves_order",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-distractor_resolution-11",
+        "category": "distractor_resolution",
+        "expected": "final-cobalt-harbor-2cd31a6cd571",
+        "actual": "final-cobalt-harbor-2cd31a6cd571",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-distractor_resolution-11",
+        "category": "distractor_resolution",
+        "expected": "final-cobalt-harbor-2cd31a6cd571",
+        "actual": "final-cobalt-harbor-2cd31a",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-distractor_resolution-12",
+        "category": "distractor_resolution",
+        "expected": "final-amber-keystone-e73367d76341",
+        "actual": "final-amber-keystone-e73367d76341",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-distractor_resolution-12",
+        "category": "distractor_resolution",
+        "expected": "final-amber-keystone-e73367d76341",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-distractor_resolution-13",
+        "category": "distractor_resolution",
+        "expected": "final-cobalt-lantern-c8126bb41178",
+        "actual": "final-cobalt-lantern-c8126bb41178",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-distractor_resolution-13",
+        "category": "distractor_resolution",
+        "expected": "final-cobalt-lantern-c8126bb41178",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-distractor_resolution-14",
+        "category": "distractor_resolution",
+        "expected": "final-ember-juniper-808bbe275fa4",
+        "actual": "final-ember-juniper-808bbe275fa4",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-distractor_resolution-14",
+        "category": "distractor_resolution",
+        "expected": "final-ember-juniper-808bbe275fa4",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-distractor_resolution-15",
+        "category": "distractor_resolution",
+        "expected": "final-frozen-harbor-e688b123fb81",
+        "actual": "final-frozen-harbor-e688b123fb81",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-distractor_resolution-15",
+        "category": "distractor_resolution",
+        "expected": "final-frozen-harbor-e688b123fb81",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-6",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-6",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-7",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "VERIFYING",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-7",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-8",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "IN_PROGRESS",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-8",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-9",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-9",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-10",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-10",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-11",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-11",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-12",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "VERIFYING",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-12",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "VERIFYING",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-04",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-04-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-04-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-1",
+        "category": "task_continuation",
+        "expected": "schema-5-migration",
+        "actual": "schema-5-migration",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-1",
+        "category": "task_continuation",
+        "expected": "schema-5-migration",
+        "actual": "edit normalizeProject5Envelope",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-2",
+        "category": "task_continuation",
+        "expected": "backfill-project-5",
+        "actual": "backfill-project-5",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-2",
+        "category": "task_continuation",
+        "expected": "backfill-project-5",
+        "actual": "fix reconcile_epoch_5_preserves_order",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-3",
+        "category": "task_continuation",
+        "expected": "cutover-project-5",
+        "actual": "cutover-project-5",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-3",
+        "category": "task_continuation",
+        "expected": "cutover-project-5",
+        "actual": "cutover",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-4",
+        "category": "task_continuation",
+        "expected": "approval-brisk-nebula-46b6c915a8f0",
+        "actual": "approval-brisk-nebula-46b6c915a8f0",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-4",
+        "category": "task_continuation",
+        "expected": "approval-brisk-nebula-46b6c915a8f0",
+        "actual": "reconcile_epoch_5_preserves_order has not passed",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-5",
+        "category": "task_continuation",
+        "expected": "verify-batch-905",
+        "actual": "verify-batch-905",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-5",
+        "category": "task_continuation",
+        "expected": "verify-batch-905",
+        "actual": "rerun npm test -- project-5",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-distractor_resolution-11",
+        "category": "distractor_resolution",
+        "expected": "final-frozen-nebula-e367b3f30f66",
+        "actual": "final-frozen-nebula-e367b3f30f66",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-distractor_resolution-11",
+        "category": "distractor_resolution",
+        "expected": "final-frozen-nebula-e367b3f30f66",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-distractor_resolution-12",
+        "category": "distractor_resolution",
+        "expected": "final-cobalt-nebula-810d8dec4c0c",
+        "actual": "final-cobalt-nebula-810d8dec4c0c",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-distractor_resolution-12",
+        "category": "distractor_resolution",
+        "expected": "final-cobalt-nebula-810d8dec4c0c",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-distractor_resolution-13",
+        "category": "distractor_resolution",
+        "expected": "final-daring-falcon-174951a1b796",
+        "actual": "final-daring-falcon-174951a1b796",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-distractor_resolution-13",
+        "category": "distractor_resolution",
+        "expected": "final-daring-falcon-174951a1b796",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-distractor_resolution-14",
+        "category": "distractor_resolution",
+        "expected": "final-daring-keystone-8ef75ffc8e4f",
+        "actual": "final-daring-keystone-8ef75ffc8e4f",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-distractor_resolution-14",
+        "category": "distractor_resolution",
+        "expected": "final-daring-keystone-8ef75ffc8e4f",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-distractor_resolution-15",
+        "category": "distractor_resolution",
+        "expected": "final-cobalt-juniper-b98d6e4c2c23",
+        "actual": "final-cobalt-juniper-b98d6e4c2c23",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-distractor_resolution-15",
+        "category": "distractor_resolution",
+        "expected": "final-cobalt-juniper-b98d6e4c2c23",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-6",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-6",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-7",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-7",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-8",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-8",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-9",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-9",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-10",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "VERIFYING",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-10",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-11",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "IN_PROGRESS",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-11",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-12",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-12",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "DONE",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "DONE",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "VERIFYING",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "VERIFYING",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-05",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-05-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-05-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-1",
+        "category": "task_continuation",
+        "expected": "schema-6-migration",
+        "actual": "schema-6-migration",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-1",
+        "category": "task_continuation",
+        "expected": "schema-6-migration",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-2",
+        "category": "task_continuation",
+        "expected": "backfill-project-6",
+        "actual": "backfill-project-6",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-2",
+        "category": "task_continuation",
+        "expected": "backfill-project-6",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-3",
+        "category": "task_continuation",
+        "expected": "cutover-project-6",
+        "actual": "cutover-project-6",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-3",
+        "category": "task_continuation",
+        "expected": "cutover-project-6",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-4",
+        "category": "task_continuation",
+        "expected": "approval-frozen-isotope-962d3c524eb2",
+        "actual": "approval-frozen-isotope-962d3c524eb2",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-4",
+        "category": "task_continuation",
+        "expected": "approval-frozen-isotope-962d3c524eb2",
+        "actual": "Expected stable ordering but got inversion",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-5",
+        "category": "task_continuation",
+        "expected": "verify-batch-906",
+        "actual": "verify-batch-906",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-5",
+        "category": "task_continuation",
+        "expected": "verify-batch-906",
+        "actual": "Rerun npm test -- project-6",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-distractor_resolution-10",
+        "category": "distractor_resolution",
+        "expected": "final-brisk-keystone-388714586829",
+        "actual": "final-brisk-keystone-388714586829",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-distractor_resolution-10",
+        "category": "distractor_resolution",
+        "expected": "final-brisk-keystone-388714586829",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-distractor_resolution-11",
+        "category": "distractor_resolution",
+        "expected": "final-golden-meteor-2e2d26b8554a",
+        "actual": "final-golden-meteor-2e2d26b8554a",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-distractor_resolution-11",
+        "category": "distractor_resolution",
+        "expected": "final-golden-meteor-2e2d26b8554a",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-distractor_resolution-12",
+        "category": "distractor_resolution",
+        "expected": "final-golden-harbor-e50f49d9e373",
+        "actual": "final-golden-harbor-e50f49d9e373",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-distractor_resolution-12",
+        "category": "distractor_resolution",
+        "expected": "final-golden-harbor-e50f49d9e373",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-distractor_resolution-13",
+        "category": "distractor_resolution",
+        "expected": "final-ember-juniper-950f5a01c580",
+        "actual": "final-ember-juniper-950f5a01c580",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-distractor_resolution-13",
+        "category": "distractor_resolution",
+        "expected": "final-ember-juniper-950f5a01c580",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-distractor_resolution-14",
+        "category": "distractor_resolution",
+        "expected": "final-amber-juniper-4a8d9cf56db0",
+        "actual": "final-amber-juniper-4a8d9cf56db0",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-distractor_resolution-14",
+        "category": "distractor_resolution",
+        "expected": "final-amber-juniper-4a8d9cf56db0",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-distractor_resolution-15",
+        "category": "distractor_resolution",
+        "expected": "final-hidden-keystone-af4162d1e110",
+        "actual": "final-hidden-keystone-af4162d1e110",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-distractor_resolution-15",
+        "category": "distractor_resolution",
+        "expected": "final-hidden-keystone-af4162d1e110",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-6",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "VERIFYING",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-6",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-7",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-7",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-8",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "BLOCKED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-8",
+        "category": "task_continuation",
+        "expected": "BLOCKED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-9",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-9",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-10",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "VERIFYING",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-10",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-11",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "VERIFYING",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-11",
+        "category": "task_continuation",
+        "expected": "VERIFYING",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-12",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-12",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "IN_PROGRESS",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 1,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "IN_PROGRESS",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "IN_PROGRESS",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-13",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "QUEUED",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-14",
+        "category": "task_continuation",
+        "expected": "QUEUED",
+        "actual": "unknown",
+        "correct": false
+      }
+    },
+    {
+      "fixtureId": "fixture-06",
+      "trial": 2,
+      "winner": "native",
+      "native": {
+        "questionId": "fixture-06-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "IN_PROGRESS",
+        "correct": true
+      },
+      "text": {
+        "questionId": "fixture-06-task_continuation-15",
+        "category": "task_continuation",
+        "expected": "IN_PROGRESS",
+        "actual": "unknown",
+        "correct": false
+      }
+    }
+  ]
+}

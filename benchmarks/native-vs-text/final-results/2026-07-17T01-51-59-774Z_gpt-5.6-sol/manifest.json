@@ -1,0 +1,19 @@
+{
+  "benchmark": "native-vs-token-matched-text-compaction",
+  "createdAt": "2026-07-17T01:51:59.795Z",
+  "model": "openai/gpt-5.6-sol",
+  "fixtureCount": 6,
+  "trials": 2,
+  "categories": [
+    "exact_recall",
+    "relational_state",
+    "tool_history",
+    "distractor_resolution",
+    "task_continuation"
+  ],
+  "questionsPerFixture": 75,
+  "nativeProtocol": "Responses compaction v2 via compaction_trigger",
+  "textBudgetRule": "max_output_tokens equals native compaction output_tokens for the paired trial",
+  "evaluator": "same model, low reasoning, strict JSON schema, exact string scoring",
+  "encryptedArtifactsStored": false
+}
