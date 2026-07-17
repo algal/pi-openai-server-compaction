@@ -4,12 +4,22 @@
 
 The full live Pi RPC suite passes with both:
 
-- `openai/gpt-5.4-nano` through the direct OpenAI Responses API
-- `openai-codex/gpt-5.4` through the ChatGPT Codex subscription backend
+- `openai/gpt-5.6-luna` through the direct OpenAI Responses API
+- `openai-codex/gpt-5.6-sol` through the ChatGPT Codex subscription backend
 
 The validated compaction request uses the normal Responses endpoint with a trailing `{ "type": "compaction_trigger" }`. Both backends returned an opaque `compaction` output item, persisted as `details.remoteCompaction` with `implementation: "responses_compaction_v2"`.
 
-Validated continuity includes same-process recall, reduced-plaintext replay, fork safety, resume/reload, and model-switch round trips. The reduced-plaintext test recovered a generated secret that was absent from all visible retained history and from the portable Pi summary.
+Validated continuity on both providers includes same-process recall, fork safety, resume/reload, and model-switch round trips. The direct OpenAI suite also includes reduced-plaintext replay; that test recovered a generated secret absent from all visible retained history and from the portable Pi summary.
+
+## Controlled native-vs-text benchmark
+
+A retained GPT-5.6 Sol benchmark compared full context, Responses compaction v2, and two token-budget-matched text-summary strategies across exact recall, relational state, tool history, distractor resolution, and task continuation. Native compaction and full context each scored 900/900; the balanced text summary scored 745/900 and the dense task-first variant scored 690/900 at effectively matched downstream context sizes.
+
+See:
+- `benchmarks/native-vs-text/REPORT.md`
+- `benchmarks/native-vs-text/README.md`
+
+This demonstrates better behavioral preservation in the tested regime, not the artifact's internal representation.
 
 ## Legacy `/responses/compact` validation
 

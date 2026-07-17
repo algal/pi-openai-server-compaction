@@ -65,7 +65,7 @@
 cd /home/algal/gits/pi-openai-server-compaction
 node --experimental-strip-types ./tests/live/openai-compaction-rpc-live.ts
 PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai/gpt-5.6-luna node --experimental-strip-types ./tests/live/openai-compaction-rpc-live.ts
-PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai-codex/gpt-5.6-luna node --experimental-strip-types ./tests/live/openai-compaction-rpc-live.ts
+PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai-codex/gpt-5.6-sol node --experimental-strip-types ./tests/live/openai-compaction-rpc-live.ts
 ```
 
 The automated live harness lives in `tests/live/openai-compaction-rpc-live.ts`.
@@ -77,6 +77,10 @@ Current automated coverage includes:
 - resume/reload after compaction
 - resume/reload after switching away from and back to the compacted model
 
-Recommended follow-up live regressions:
-- the same model-switch + resume scenario on `openai-codex/*`
+Recommended follow-up live regression:
 - explicit tree navigation after an intervening other-model turn, followed by restart
+
+## Controlled compaction benchmark
+
+The native-vs-text benchmark, reproduction instructions, retained evidence, and report live under:
+- `benchmarks/native-vs-text/`

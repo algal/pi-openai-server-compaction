@@ -38,13 +38,13 @@ One-shot, non-persistent:
 ```bash
 git clone https://github.com/algal/pi-openai-server-compaction.git
 cd pi-openai-server-compaction && npm install
-pi -e ./src/index.ts --model openai/gpt-5.4-nano
+pi -e ./src/index.ts --model openai/gpt-5.6-luna
 ```
 
 ## Requirements
 
 - Node `>= 22`
-- Pi `0.80.9` or newer
+- Pi `>=0.80.9 <0.81.0`
 - Auth/config for the model you want to use must already work in Pi
 - A supported OpenAI Responses model, e.g. `openai/gpt-5.6-sol` or `openai-codex/gpt-5.6-sol`
 
@@ -145,7 +145,7 @@ npm run test:live
 Override the test model:
 
 ```bash
-PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai-codex/gpt-5.4 npm run test:live
+PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai-codex/gpt-5.6-sol npm run test:live
 ```
 
 ## Limitations
@@ -170,6 +170,7 @@ PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai-codex/gpt-5.4 npm run test:live
 | `src/stream-message-shared.ts`             | Shared assistant message builders                                 |
 | `tests/live/openai-compaction-rpc-live.ts` | Live Pi RPC regression test                                       |
 | `scripts/smoke.mjs`                        | Offline smoke test with peer-package bootstrapping                |
+| `benchmarks/native-vs-text/`               | Controlled benchmark, retained evidence, and standalone report    |
 | `ARCHITECTURE.md`                          | Design and control-flow documentation                             |
 | `TESTPLAN.md`                              | Manual and automated test plan                                    |
 | `CHANGELOG.md`                             | Version history                                                   |

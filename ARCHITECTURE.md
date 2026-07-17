@@ -222,6 +222,11 @@ This is a black-box integration test that drives real `pi --mode rpc` sessions a
 - fork after compaction
 - resume/reload after compaction
 
+### Controlled native-vs-text benchmark
+
+The reproducible benchmark, retained evidence, and standalone report live under:
+- `benchmarks/native-vs-text/`
+
 ## Suggested reading order
 
 If you are new to the repo, read in this order:
