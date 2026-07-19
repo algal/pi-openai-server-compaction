@@ -10,7 +10,9 @@ The result is not explained by giving native more downstream context. In the 11 
 
 The evidence therefore supports this limited conclusion:
 
-> For GPT-5.6 Sol on these information-preservation tasks, Responses native compaction preserved substantially more usable state than either tested textual summary at essentially the same downstream context footprint.
+> For GPT-5.6 Sol on these information-preservation tasks, Responses native compaction preserved substantially more usable state than either tested textual summary at essentially the same **billed** downstream context footprint.
+
+"Billed" is a deliberate qualifier: token accounting is the only externally observable size signal, and it need not reflect the opaque artifact's actual information capacity (see limitation 6).
 
 It does **not** establish that the opaque artifact is a latent-space representation. An encrypted, model-optimized textual or structured representation remains a sufficient explanation.
 
@@ -220,14 +222,15 @@ The correct claim is behavioral: **the opaque representation preserved more usab
 ## Limitations
 
 1. **Synthetic workload.** The fixtures are designed to measure information retention cleanly. They are not a substitute for real repository work, code edits, or open-ended design continuation.
-2. **One model and provider.** Only direct OpenAI GPT-5.6 Sol was measured. Results may differ for other effort tiers, models, or the `openai-codex` provider.
-3. **Two textual prompts.** The space of possible plaintext compressors is unlimited. These were a balanced high-recall prompt and a deliberately dense task-first prompt, not a proof that no textual strategy can match native.
-4. **Not Pi's exact default prompt.** The balanced arm is a controlled generic continuation summary, not a byte-for-byte invocation of Pi's current compaction implementation. It avoids some Pi-specific truncation, so it should not be read as a direct benchmark of one Pi release.
-5. **Budget observability.** Native `output_tokens` is the best available matching signal, but the API does not expose the decrypted artifact's semantic capacity. Downstream input-token matching substantially reduces, but cannot remove, this uncertainty.
-6. **Correlated observations.** Questions within fixtures and two trials over the same fixture are not independent. The tiny question-level p-value overstates the effective sample size.
-7. **No repeated-compaction chain.** Every trial performed one compaction. Accumulated degradation after several compactions remains unmeasured.
-8. **Same-model consumption.** GPT-5.6 Sol generated and consumed each representation. Native artifacts may rely on model-specific conventions and may not transfer.
-9. **Evaluation order.** Native was always evaluated between the other two primary arms; only full versus text order alternated.
+2. **Ceiling effect: native's failure point was never found.** Native compaction scored 900/900, so the benchmark establishes only that native retained at least everything tested — it measures no margin and cannot rank native against a hypothetical stronger compressor. Relatedly, the fixtures' total authoritative state (325 items, roughly 6–8k tokens if dumped densely) nearly fits within the compaction budget, so the task primarily stresses how a compressor *allocates* a barely insufficient budget rather than deep lossy compression. A workload whose essential state decisively exceeds the budget might show native degrading too, in unknown ways.
+3. **One model and provider.** Only direct OpenAI GPT-5.6 Sol was measured. Results may differ for other effort tiers, models, or the `openai-codex` provider.
+4. **Two textual prompts.** The space of possible plaintext compressors is unlimited. These were a balanced high-recall prompt and a deliberately dense task-first prompt, not a proof that no textual strategy can match native.
+5. **Not Pi's exact default prompt.** The balanced arm is a controlled generic continuation summary, not a byte-for-byte invocation of Pi's current compaction implementation. It avoids some Pi-specific truncation, so it should not be read as a direct benchmark of one Pi release.
+6. **Budget observability.** Native `output_tokens` is the best available matching signal, but the API does not expose the decrypted artifact's semantic capacity. Downstream input-token matching substantially reduces, but cannot remove, this uncertainty. The raw sizes hint at the gap: the encrypted artifact averaged 21,614 bytes of ciphertext versus 14,818 characters of summary text, and the highly templated fixture histories would compress well, so an artifact billed at the same token count could in principle carry a much larger — even near-verbatim — payload. Equal billed tokens therefore does not imply equal information capacity; the comparison is a cost match, not a capacity match.
+7. **Correlated observations.** Questions within fixtures and two trials over the same fixture are not independent. The tiny question-level p-value overstates the effective sample size. In addition, the ten work-ledger task-state questions per fixture draw answers from a five-value set (DONE/IN_PROGRESS/BLOCKED/QUEUED/VERIFYING), so roughly 20% of that subset is attainable by guessing, which slightly inflates the weakest text-arm category's floor.
+8. **No repeated-compaction chain.** Every trial performed one compaction. Accumulated degradation after several compactions remains unmeasured.
+9. **Same-model consumption.** GPT-5.6 Sol generated and consumed each representation. Native artifacts may rely on model-specific conventions and may not transfer.
+10. **Evaluation order.** Native was always evaluated between the other two primary arms; only full versus text order alternated.
 
 ## Reproducibility and evidence map
 
@@ -262,6 +265,6 @@ Reproduction commands and environment requirements are in `README.md`.
 
 ## Bottom line
 
-Within the tested regime, native Responses compaction was not merely equivalent to a well-prompted textual summary. It retained every probed item while matched-size textual summaries exhibited substantial and prompt-dependent forgetting. That is strong evidence for using native compaction when continuity quality matters and the session will remain on a compatible OpenAI model/provider.
+Within the tested regime, native Responses compaction was not merely equivalent to a well-prompted textual summary. It retained every probed item while billed-token-matched textual summaries exhibited substantial and prompt-dependent forgetting. That is strong evidence for using native compaction when continuity quality matters and the session will remain on a compatible OpenAI model/provider.
 
 The remaining reasons to retain Pi's plaintext fallback are portability, inspectability, provider switching, and failure recovery—not superior measured recall in this experiment.

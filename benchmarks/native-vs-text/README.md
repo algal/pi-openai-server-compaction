@@ -98,7 +98,8 @@ See `REPORT.md` for the interpretation of the retained reference run.
 
 ## Important limitations
 
-- Matching `max_output_tokens` to native `output_tokens` is not proof of equal effective information capacity.
+- Matching `max_output_tokens` to native `output_tokens` matches billed cost, not proven information capacity. The encrypted artifact's byte length exceeds the summary text's, so an artifact billed at the same token count could carry a larger payload.
+- Native compaction scored at the benchmark's ceiling, so the results bound it from below only; its own failure point under a decisively insufficient budget remains unmeasured.
 - The same model generates and consumes each representation, so results may not transfer to other models.
 - Synthetic exact-answer tasks measure state preservation, not all aspects of real software-engineering continuation.
 - Repeated trials over the same fixture are not independent samples. Statistical intervals over question observations are descriptive; fixture-level consistency and paired disagreements should also be inspected.
