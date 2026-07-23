@@ -1,5 +1,12 @@
 # Benchmark: OpenAI native compaction vs. token-budget-matched textual summary
 
+> **Methodological correction (2026-07-23):** “Token-budget-matched” here means
+> the text arm was capped after observing the paired native arm's output usage.
+> Native was free to select that size; text was not free to exceed it. This is a
+> real asymmetry, so the retained run should not be used to claim a symmetric
+> same-budget advantage. See the replacement
+> [product-defaults benchmark](../product-defaults/REPORT.md).
+
 ## Question
 
 Does OpenAI's opaque Responses compaction preserve useful conversation state better than a conventional textual summary when both are produced by the same model and the textual summary receives the native compaction pass's reported output-token budget?
@@ -98,7 +105,8 @@ See `REPORT.md` for the interpretation of the retained reference run.
 
 ## Important limitations
 
-- Matching `max_output_tokens` to native `output_tokens` is not proof of equal effective information capacity.
+- Matching `max_output_tokens` to native `output_tokens` matches billed cost, not proven information capacity. The encrypted artifact's byte length exceeds the summary text's, so an artifact billed at the same token count could carry a larger payload.
+- Native compaction scored at the benchmark's ceiling, so the results bound it from below only; its own failure point under a decisively insufficient budget remains unmeasured.
 - The same model generates and consumes each representation, so results may not transfer to other models.
 - Synthetic exact-answer tasks measure state preservation, not all aspects of real software-engineering continuation.
 - Repeated trials over the same fixture are not independent samples. Statistical intervals over question observations are descriptive; fixture-level consistency and paired disagreements should also be inspected.

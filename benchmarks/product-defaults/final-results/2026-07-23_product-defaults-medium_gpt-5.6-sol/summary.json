@@ -1,0 +1,375 @@
+{
+  "directory": "/home/algal/gits/pi-openai-server-compaction/benchmarks/product-defaults/final-results/2026-07-23_product-defaults-medium_gpt-5.6-sol",
+  "runLabel": "confirmatory-medium",
+  "defaultThinkingLevel": "medium",
+  "nativeRequestTuning": "default Pi request shape: reasoning medium/auto; no explicit text configuration",
+  "primaryEligible": true,
+  "trials": 8,
+  "independentSeeds": 4,
+  "densities": [
+    180,
+    200
+  ],
+  "byArm": {
+    "full_context": {
+      "correct": 600,
+      "total": 600,
+      "accuracy": 1
+    },
+    "pi_default": {
+      "correct": 288,
+      "total": 600,
+      "accuracy": 0.48
+    },
+    "native_extension": {
+      "correct": 468,
+      "total": 600,
+      "accuracy": 0.78
+    }
+  },
+  "byDensity": {
+    "180": {
+      "trials": 4,
+      "arms": {
+        "full_context": {
+          "correct": 300,
+          "total": 300,
+          "accuracy": 1
+        },
+        "pi_default": {
+          "correct": 154,
+          "total": 300,
+          "accuracy": 0.5133333333333333
+        },
+        "native_extension": {
+          "correct": 215,
+          "total": 300,
+          "accuracy": 0.7166666666666667
+        }
+      },
+      "meanEstimatedInputTokens": 50220,
+      "meanAuthoritativeRecords": 900,
+      "meanRecordedCostUsd": 2.1537969375
+    },
+    "200": {
+      "trials": 4,
+      "arms": {
+        "full_context": {
+          "correct": 300,
+          "total": 300,
+          "accuracy": 1
+        },
+        "pi_default": {
+          "correct": 134,
+          "total": 300,
+          "accuracy": 0.44666666666666666
+        },
+        "native_extension": {
+          "correct": 253,
+          "total": 300,
+          "accuracy": 0.8433333333333334
+        }
+      },
+      "meanEstimatedInputTokens": 50220,
+      "meanAuthoritativeRecords": 1000,
+      "meanRecordedCostUsd": 2.4079719375
+    }
+  },
+  "byCategory": {
+    "distractor_resolution": {
+      "full_context": {
+        "correct": 120,
+        "total": 120,
+        "accuracy": 1
+      },
+      "pi_default": {
+        "correct": 56,
+        "total": 120,
+        "accuracy": 0.4666666666666667
+      },
+      "native_extension": {
+        "correct": 93,
+        "total": 120,
+        "accuracy": 0.775
+      }
+    },
+    "exact_recall": {
+      "full_context": {
+        "correct": 120,
+        "total": 120,
+        "accuracy": 1
+      },
+      "pi_default": {
+        "correct": 58,
+        "total": 120,
+        "accuracy": 0.48333333333333334
+      },
+      "native_extension": {
+        "correct": 93,
+        "total": 120,
+        "accuracy": 0.775
+      }
+    },
+    "relational_state": {
+      "full_context": {
+        "correct": 120,
+        "total": 120,
+        "accuracy": 1
+      },
+      "pi_default": {
+        "correct": 56,
+        "total": 120,
+        "accuracy": 0.4666666666666667
+      },
+      "native_extension": {
+        "correct": 93,
+        "total": 120,
+        "accuracy": 0.775
+      }
+    },
+    "task_continuation": {
+      "full_context": {
+        "correct": 120,
+        "total": 120,
+        "accuracy": 1
+      },
+      "pi_default": {
+        "correct": 62,
+        "total": 120,
+        "accuracy": 0.5166666666666667
+      },
+      "native_extension": {
+        "correct": 95,
+        "total": 120,
+        "accuracy": 0.7916666666666666
+      }
+    },
+    "tool_history": {
+      "full_context": {
+        "correct": 120,
+        "total": 120,
+        "accuracy": 1
+      },
+      "pi_default": {
+        "correct": 56,
+        "total": 120,
+        "accuracy": 0.4666666666666667
+      },
+      "native_extension": {
+        "correct": 94,
+        "total": 120,
+        "accuracy": 0.7833333333333333
+      }
+    }
+  },
+  "byEpoch": {
+    "0": {
+      "full_context": {
+        "correct": 40,
+        "total": 40,
+        "accuracy": 1
+      },
+      "pi_default": {
+        "correct": 0,
+        "total": 40,
+        "accuracy": 0
+      },
+      "native_extension": {
+        "correct": 26,
+        "total": 40,
+        "accuracy": 0.65
+      }
+    },
+    "1": {
+      "full_context": {
+        "correct": 80,
+        "total": 80,
+        "accuracy": 1
+      },
+      "pi_default": {
+        "correct": 0,
+        "total": 80,
+        "accuracy": 0
+      },
+      "native_extension": {
+        "correct": 52,
+        "total": 80,
+        "accuracy": 0.65
+      }
+    },
+    "2": {
+      "full_context": {
+        "correct": 40,
+        "total": 40,
+        "accuracy": 1
+      },
+      "pi_default": {
+        "correct": 0,
+        "total": 40,
+        "accuracy": 0
+      },
+      "native_extension": {
+        "correct": 26,
+        "total": 40,
+        "accuracy": 0.65
+      }
+    },
+    "3": {
+      "full_context": {
+        "correct": 80,
+        "total": 80,
+        "accuracy": 1
+      },
+      "pi_default": {
+        "correct": 0,
+        "total": 80,
+        "accuracy": 0
+      },
+      "native_extension": {
+        "correct": 52,
+        "total": 80,
+        "accuracy": 0.65
+      }
+    },
+    "4": {
+      "full_context": {
+        "correct": 40,
+        "total": 40,
+        "accuracy": 1
+      },
+      "pi_default": {
+        "correct": 0,
+        "total": 40,
+        "accuracy": 0
+      },
+      "native_extension": {
+        "correct": 26,
+        "total": 40,
+        "accuracy": 0.65
+      }
+    },
+    "5": {
+      "full_context": {
+        "correct": 80,
+        "total": 80,
+        "accuracy": 1
+      },
+      "pi_default": {
+        "correct": 48,
+        "total": 80,
+        "accuracy": 0.6
+      },
+      "native_extension": {
+        "correct": 54,
+        "total": 80,
+        "accuracy": 0.675
+      }
+    },
+    "6": {
+      "full_context": {
+        "correct": 40,
+        "total": 40,
+        "accuracy": 1
+      },
+      "pi_default": {
+        "correct": 40,
+        "total": 40,
+        "accuracy": 1
+      },
+      "native_extension": {
+        "correct": 38,
+        "total": 40,
+        "accuracy": 0.95
+      }
+    },
+    "7": {
+      "full_context": {
+        "correct": 80,
+        "total": 80,
+        "accuracy": 1
+      },
+      "pi_default": {
+        "correct": 80,
+        "total": 80,
+        "accuracy": 1
+      },
+      "native_extension": {
+        "correct": 76,
+        "total": 80,
+        "accuracy": 0.95
+      }
+    },
+    "8": {
+      "full_context": {
+        "correct": 40,
+        "total": 40,
+        "accuracy": 1
+      },
+      "pi_default": {
+        "correct": 40,
+        "total": 40,
+        "accuracy": 1
+      },
+      "native_extension": {
+        "correct": 38,
+        "total": 40,
+        "accuracy": 0.95
+      }
+    },
+    "9": {
+      "full_context": {
+        "correct": 80,
+        "total": 80,
+        "accuracy": 1
+      },
+      "pi_default": {
+        "correct": 80,
+        "total": 80,
+        "accuracy": 1
+      },
+      "native_extension": {
+        "correct": 80,
+        "total": 80,
+        "accuracy": 1
+      }
+    }
+  },
+  "pairedNativeVsPi": {
+    "bothCorrect": 262,
+    "nativeOnly": 206,
+    "piOnly": 26,
+    "bothWrong": 106
+  },
+  "resources": {
+    "piDefault": {
+      "meanCompactionInputTokens": 39046.5,
+      "meanCompactionOutputTokens": 3103.25,
+      "meanCompactionCostUsd": 0.337134375,
+      "meanSummaryCharacters": 6730.125,
+      "lengthStoppedTrials": 0,
+      "meanDownstreamInputTokens": 32968.625,
+      "meanDownstreamCostUsd": 0.25356115625
+    },
+    "nativeExtension": {
+      "meanCompactionInputTokens": 67518.5,
+      "meanCompactionOutputTokens": 14212.125,
+      "meanCompactionCostUsd": 0.848306875,
+      "meanArtifactBytes": 40367.5,
+      "meanRetainedUserMessageItems": 25.5,
+      "meanDownstreamInputTokens": 42691.375,
+      "meanDownstreamCostUsd": 0.32780153125
+    },
+    "fullContext": {
+      "meanDownstreamInputTokens": 70923.5,
+      "meanDownstreamCostUsd": 0.5140804999999999
+    },
+    "totalRecordedCostUsd": 18.2470755
+  },
+  "resourceComparison": {
+    "nativeToPiCompactionOutputRatio": 4.579755095464432,
+    "nativeToPiCompactionCostRatio": 2.5162277652642215,
+    "nativeToPiDownstreamInputRatio": 1.2949091750110902,
+    "nativeMinusPiAccuracyPoints": 30.000000000000004
+  },
+  "recommendation": null
+}

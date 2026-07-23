@@ -6,9 +6,38 @@ What does that mean? Why would you want it? My impression has been that Codex co
 
 But is Codex's compaction _actually_ better? Since the OpenAI compaction endpoint compacts to encrypted binary blobs, no one can say what it is doing under the hood. However, we don't need to know how it works to determine if it works better. Anyone can call the endpoint. And since codex is an open source, we can mimic exactly how codex itself uses the endpoint. That is what this extension configures Pi to do.
 
-So is native compaction better? Yes, I think so. I tasked GPT-5.6 Sol to run a controlled benchmark, and it found 100% recall from native compaction versus 82.8% for a balanced token-budget-matched text summary and 76.7% for a dense task-first variant. This shows a behavioral advantage in the tested regime. So this matches my own personal experience operating both these systems. 
+So is native compaction better? For the user-facing comparison I care about,
+the evidence says yes, with important price and reliability qualifiers. A
+held-out benchmark of the real product defaults found 78.0% exact recall for
+this extension's native policy versus 48.0% for Pi's default compactor; full
+context scored 100%. Native did this while emitting 4.58x as many compaction
+output tokens and leaving a 29% larger billed downstream context. It preserved
+much more old state, but this is not evidence that it is better at the same
+token budget.
+Native was also highly variable: every large artifact scored perfectly, while
+three small artifacts performed about as poorly as Pi.
 
-This result does not prove the encrypted blobs use any clever latent-space representation. They might just be encrypted optimized text or structured state values of some kind. (A little reverse engineering suggests the blogs are produced through a textual prompt, for what it is worth: https://x.com/alexisgallagher/status/2042396986327060736?s=20 .) See the [standalone report](benchmarks/native-vs-text/REPORT.md) and [reproduction instructions](benchmarks/native-vs-text/README.md) for the protocol, retained evidence, and limitations.
+Strictly, this directly compares Pi with this extension's reconstruction of
+Codex-style compaction, not with an end-to-end run of the Codex CLI. The result
+also does not show that the endpoint reliably detects when more capacity is
+needed: its short artifacts were the failures. What it does show is that the
+native default sometimes allocates far more context, and those large-allocation
+runs drove its aggregate advantage.
+
+An earlier benchmark reported 100% native recall versus 82.8% and 76.7% for two
+text summaries at apparently matched downstream sizes. That procedure first
+observed native's output usage and then imposed it as the text arm's maximum,
+which is asymmetric and can favor native. Its same-budget interpretation is
+therefore superseded. See the new [product-defaults report](benchmarks/product-defaults/REPORT.md)
+and [reproduction instructions](benchmarks/product-defaults/README.md). The
+[older matched-cap report](benchmarks/native-vs-text/REPORT.md) remains retained
+with a methodological correction.
+
+None of this proves the encrypted blobs use a clever latent-space
+representation. They might be encrypted optimized text or structured state
+values. (A little reverse engineering suggests the blobs are produced through
+a textual prompt, for what it is worth:
+https://x.com/alexisgallagher/status/2042396986327060736?s=20 .)
 
 > **Status:** experimental but live-tested against real Pi + real OpenAI backends.
 > Recommended rollout: install project-local first, use for a week, keep rollback easy.
@@ -234,7 +263,8 @@ PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai-codex/gpt-5.6-sol npm run test:liv
 | `tests/grok-gateway.test.mjs`              | Offline Grok gateway regression tests                              |
 | `tests/live/openai-compaction-rpc-live.ts` | Live Pi RPC regression test                                       |
 | `scripts/smoke.mjs`                        | Offline smoke test with peer-package bootstrapping                |
-| `benchmarks/native-vs-text/`               | Controlled benchmark, retained evidence, and standalone report    |
+| `benchmarks/product-defaults/`             | Current default-vs-default benchmark, retained evidence, and report |
+| `benchmarks/native-vs-text/`               | Earlier matched-cap benchmark, retained with a correction          |
 | `ARCHITECTURE.md`                          | Design and control-flow documentation                             |
 | `TESTPLAN.md`                              | Manual and automated test plan                                    |
 | `CHANGELOG.md`                             | Version history                                                   |
