@@ -79,6 +79,64 @@ pi -e ./src/index.ts --model openai/gpt-5.6-luna
 - Auth/config for the model you want to use must already work in Pi
 - A supported OpenAI Responses model, e.g. `openai/gpt-5.6-sol` or `openai-codex/gpt-5.6-sol`
 
+## Grok CLI gateway
+
+The package also ships an optional standalone gateway for official Grok CLI.
+Grok replays its full Responses input on every turn but does not currently
+initiate server-side compaction itself. The gateway watches those full replays,
+compacts an old prefix through the same `compaction_trigger` protocol, and
+replaces that exact prefix with the returned opaque item on later requests.
+
+This path is separate from the Pi extension. It requires an upstream that
+supports normal OpenAI Responses requests and `compaction_trigger`; provider
+authentication remains the upstream's responsibility.
+
+Start it from a checkout:
+
+```bash
+git clone https://github.com/algal/pi-openai-server-compaction.git
+cd pi-openai-server-compaction && npm install
+GROK_COMPACTION_UPSTREAM=https://api.openai.com/v1 \
+GROK_COMPACTION_HELPER_MODEL=gpt-5.6-luna \
+  npm exec -- grok-openai-server-compaction
+```
+
+Then point only the desired GPT model entries in `~/.grok/config.toml` at the
+loopback gateway:
+
+```toml
+[model."gpt-5.6-luna"]
+model = "gpt-5.6-luna"
+base_url = "http://127.0.0.1:10532/v1"
+env_key = "OPENAI_API_KEY"
+api_backend = "responses"
+context_window = 272000
+```
+
+The gateway is loopback-only by default. It uses Grok's session, conversation,
+and agent headers to isolate branches; validates exact source-prefix hashes;
+keeps tool calls with their outputs; and commits state only after a completed
+main response. Compaction failures and history mismatches fail open. The state
+file contains opaque `encrypted_content`, prefix hashes, and branch metadata,
+not source conversation text.
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `GROK_COMPACTION_UPSTREAM` | required | Responses-compatible upstream base URL |
+| `GROK_COMPACTION_HOST` | `127.0.0.1` | Gateway bind host |
+| `GROK_COMPACTION_PORT` | `10532` | Gateway port |
+| `GROK_COMPACTION_STATE_FILE` | `~/.grok/openai-compaction-gateway/state.json` | Per-machine opaque state |
+| `GROK_COMPACTION_THRESHOLD_TOKENS` | `180000` | Approximate input size that triggers compaction |
+| `GROK_COMPACTION_KEEP_TOKENS` | `20000` | Recent input retained after compaction |
+| `GROK_COMPACTION_HELPER_MODEL` | `gpt-5.6-luna` | GPT model used for Grok's stateless helper requests |
+
+The gateway filters the Codex-only `response.metadata` SSE event that current
+Grok clients reject and reconstructs empty terminal `output` arrays from
+completed output items. Grok's local transcript remains unchanged and
+human-readable; only model-bound context uses the opaque replacement. To roll
+back, restore the model's previous `base_url`, stop the gateway, and retain or
+delete its state file while stopped.
+
 ## What it does
 
 On compaction, the extension requests Responses compaction v2 through `/v1/responses` in parallel with generating a portable Pi text summary. This gives you both:
@@ -199,6 +257,10 @@ PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai-codex/gpt-5.6-sol npm run test:liv
 | `src/config.ts`                            | Configuration loading                                             |
 | `src/state.ts`                             | Ephemeral per-session runtime state                               |
 | `src/stream-message-shared.ts`             | Shared assistant message builders                                 |
+| `src/grok/cli.mjs`                         | Standalone Grok compaction gateway entrypoint                      |
+| `src/grok/server.mjs`                      | Grok Responses proxy, compatibility filtering, and commit gate     |
+| `src/grok/core.mjs`                        | Prefix matching, tool-safe cuts, and opaque state persistence      |
+| `tests/grok-gateway.test.mjs`              | Offline Grok gateway regression tests                              |
 | `tests/live/openai-compaction-rpc-live.ts` | Live Pi RPC regression test                                       |
 | `scripts/smoke.mjs`                        | Offline smoke test with peer-package bootstrapping                |
 | `benchmarks/product-defaults/`             | Current default-vs-default benchmark, retained evidence, and report |

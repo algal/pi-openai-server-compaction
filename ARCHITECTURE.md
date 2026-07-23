@@ -62,6 +62,32 @@ For later direct OpenAI Responses turns, the extension prefers:
 - otherwise safe live continuation using `previous_response_id`
 - otherwise ordinary full-input replay / Pi fallback behavior
 
+### Standalone Grok gateway
+
+The Grok path is a separate executable and does not load Pi lifecycle hooks:
+
+1. Official Grok sends a full Responses request to loopback `:10532` with stable
+   session, conversation, and agent headers.
+2. `src/grok/server.mjs` derives a request-shape-specific identity and serializes
+   requests for that identity.
+3. `src/grok/core.mjs` matches a saved branch only when its exact source-prefix
+   hash still matches the full replay.
+4. Above the configured threshold, the gateway sends the compactable old prefix
+   plus `compaction_trigger` to the configured upstream.
+5. The main request uses the opaque item plus the retained recent tail.
+6. New state is committed atomically only after the main SSE stream reaches a
+   completed terminal response and the client is still connected.
+
+Failures, cancellations, incomplete streams, malformed state, and branch
+mismatches do not commit provisional state. Tool calls and matching outputs stay
+on the same side of a cut. The gateway filters provider extension events known
+to break current Grok parsers, while otherwise preserving the Responses stream.
+
+Unlike Pi, Grok has no extension lifecycle that can replace its local session
+tree. Its original transcript therefore remains authoritative; the gateway's
+per-machine state contains only opaque replacement items, prefix hashes, and
+branch metadata.
+
 ## Persisted state vs runtime state
 
 ### Persisted in Pi session history
@@ -172,6 +198,18 @@ Small dispatch layer that enables the custom WS-backed stream only for direct Op
 
 Shared message constructors used by the stream path so generated assistant messages match what Pi expects.
 
+### `src/grok/server.mjs`
+
+Standalone loopback Responses proxy for Grok. It handles helper-model rewriting,
+SSE compatibility filtering, identity locks, compaction orchestration, and the
+final commit gate.
+
+### `src/grok/core.mjs`
+
+Grok-specific durable state and history logic: canonical prefix hashes,
+tool-safe cut selection, branch matching, TTL pruning, and atomic opaque-only
+writes.
+
 ## Safety model
 
 The extension intentionally avoids reusing provider-native continuity blindly.
@@ -207,6 +245,14 @@ So the package is intentionally hybrid:
 - `npm run smoke`
 
 Verifies imports/loadability.
+
+### Grok gateway regression
+
+- `npm run test:grok`
+
+Covers prefix matching, restart replay, branch mismatch, upstream failure,
+incomplete-response commit protection, helper rewriting, metadata filtering,
+and tool-call boundary safety.
 
 ### Live end-to-end test
 

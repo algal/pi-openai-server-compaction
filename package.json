@@ -37,6 +37,9 @@
   "pi": {
     "extensions": ["./src/index.ts"]
   },
+  "bin": {
+    "grok-openai-server-compaction": "./src/grok/cli.mjs"
+  },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": ">=0.80.9 <0.81.0",
     "@earendil-works/pi-ai": ">=0.80.9 <0.81.0",
@@ -50,7 +53,8 @@
   "scripts": {
     "smoke": "node --experimental-strip-types ./scripts/smoke.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "npm run typecheck && npm run smoke",
+    "test:grok": "node --test ./tests/grok-gateway.test.mjs",
+    "test": "npm run typecheck && npm run smoke && npm run test:grok",
     "test:live": "node --experimental-strip-types ./tests/live/openai-compaction-rpc-live.ts"
   },
   "dependencies": {

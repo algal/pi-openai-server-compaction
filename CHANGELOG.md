@@ -9,6 +9,7 @@ This changelog intentionally starts at **0.1.0**.
 - stream a normal Responses request with a trailing `compaction_trigger` and persist the returned `compaction` item
 - retain recent user messages with the same 20K-token budget shape used by Codex while continuing to read legacy version 1 session artifacts
 - add a reproducible native-vs-text compaction benchmark, retained GPT-5.6 Sol evidence, and a standalone report
+- add an opt-in standalone Grok gateway with branch-safe opaque compaction replay, completed-response commit gating, and focused regression tests
 - add a fixed-context, information-density-calibrated product-defaults benchmark comparing Pi's real default compactor with the extension's real native replay policy
 - correct the earlier benchmark's same-budget interpretation: its text cap was selected after observing native output usage
 

@@ -12,6 +12,12 @@
    - `/tree`
    - session resume/reload
    - cost totals on WS path are non-zero and plausible
+3. Verify the standalone Grok gateway:
+   - compacts only exact matching full-replay prefixes
+   - isolates session/fork/subagent identities
+   - never persists source conversation text
+   - commits only after a completed main response
+   - fails open on mismatch or upstream compaction failure
 
 ## Suggested manual tests
 
@@ -59,7 +65,26 @@
 - Confirm footer/session stats show non-zero token/cost totals.
 - Compare rough totals against dashboard/provider logs when possible.
 
-## Automated live test
+### 8. Grok gateway
+- Start the gateway with a Responses upstream that supports `compaction_trigger`.
+- Point one GPT model in a temporary Grok home at `127.0.0.1:10532`.
+- Confirm an ordinary official Grok turn completes.
+- Force a low-threshold synthetic multi-turn request with Grok identity headers.
+- Confirm the response completes, opaque state is committed, and a unique source
+  marker is absent from the state file.
+- Confirm a provider `response.metadata` event is not forwarded to Grok.
+- Restart the gateway and confirm the same full replay reuses the saved opaque
+  prefix.
+
+## Automated tests
+
+Offline Grok gateway regressions:
+
+```bash
+npm run test:grok
+```
+
+Pi live test:
 
 ```bash
 cd /home/algal/gits/pi-openai-server-compaction
@@ -70,7 +95,15 @@ PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai-codex/gpt-5.6-sol node --experimen
 
 The automated live harness lives in `tests/live/openai-compaction-rpc-live.ts`.
 
-Current automated coverage includes:
+Grok gateway coverage includes:
+- tool-call boundary safety
+- helper request rewriting
+- opaque-only persistence and restart replay
+- exact-prefix mismatch and upstream-failure fallback
+- incomplete-response commit protection
+- Responses metadata filtering and terminal output reconstruction
+
+Current Pi automated coverage includes:
 - compaction continuity in the same session
 - `/model`-style switch away and back again
 - fork after compaction
