@@ -1,5 +1,12 @@
 # Benchmark: OpenAI native compaction vs. token-budget-matched textual summary
 
+> **Methodological correction (2026-07-23):** “Token-budget-matched” here means
+> the text arm was capped after observing the paired native arm's output usage.
+> Native was free to select that size; text was not free to exceed it. This is a
+> real asymmetry, so the retained run should not be used to claim a symmetric
+> same-budget advantage. See the replacement
+> [product-defaults benchmark](../product-defaults/REPORT.md).
+
 ## Question
 
 Does OpenAI's opaque Responses compaction preserve useful conversation state better than a conventional textual summary when both are produced by the same model and the textual summary receives the native compaction pass's reported output-token budget?

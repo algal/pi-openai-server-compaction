@@ -1,0 +1,30 @@
+{
+  "benchmark": "pi-default-vs-extension-native-product-policies",
+  "label": "confirmatory-medium",
+  "createdAt": "2026-07-23T15:03:55.537Z",
+  "model": "openai/gpt-5.6-sol",
+  "seeds": [
+    301,
+    302,
+    303,
+    304
+  ],
+  "densities": [
+    180,
+    200
+  ],
+  "targetTokens": 50000,
+  "questionsPerCategory": 15,
+  "piSettings": {
+    "enabled": true,
+    "reserveTokens": 16384,
+    "keepRecentTokens": 20000
+  },
+  "defaultThinkingLevel": "medium",
+  "nativeProtocol": "Responses compaction v2 through extension callRemoteCompactionEndpoint",
+  "nativeRequestTuning": "default Pi request shape: reasoning medium/auto; no explicit text configuration",
+  "primaryBudgetRule": "none; each product policy uses its own default output behavior",
+  "maxCostUsd": 20,
+  "systemInstructions": "You are the assistant responsible for one synthetic software project. Treat statements marked authoritative as binding, preserve exact identifiers and tool outputs, apply final corrections over superseded values, and maintain exact task checkpoints.",
+  "encryptedArtifactsStored": false
+}

@@ -1,5 +1,13 @@
 # Does OpenAI native compaction preserve context better than a textual summary?
 
+> **Methodological correction (2026-07-23):** This experiment first observed
+> native compaction's reported output usage and then used that realization as
+> the text arm's maximum output cap. That is asymmetric: native selected its
+> own size, while text could not exceed it. The raw results below remain valid,
+> but they should not be interpreted as a symmetric same-budget comparison.
+> The current [product-defaults benchmark](../product-defaults/REPORT.md)
+> removes that one-sided cap and reports each policy's natural resource use.
+
 ## Executive summary
 
 This experiment compared OpenAI Responses compaction v2 with a conventional textual continuation summary on long synthetic software-project conversations. The same `openai/gpt-5.6-sol` model produced both representations and answered the same hidden-after-compaction questions. The textual summary's per-trial output cap was set to the native compaction pass's reported output-token count. A full-context arm established that every question was answerable.

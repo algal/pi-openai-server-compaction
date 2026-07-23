@@ -9,6 +9,7 @@ coverage/
 dist/
 .pi/
 *.jsonl
+benchmarks/product-defaults/final-results/2026-07-23_product-defaults_gpt-5.6-sol/
 .DS_Store
 *.swp
 *.swo
