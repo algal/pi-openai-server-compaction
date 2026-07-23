@@ -100,8 +100,8 @@ function responseTransformer() {
   function transformBlock(block) {
     const event = parseSseBlock(block);
     if (!event) return `${block}\n\n`;
-    // Official Grok's Responses parser rejects this Codex-only extension event.
-    if (event.type === "response.metadata") return "";
+    // Official Grok's Responses parser rejects Codex extension events.
+    if (["keepalive", "response.metadata"].includes(event.type)) return "";
     if (event.type === "response.output_item.done" && event.item && typeof event.item === "object") {
       outputItems.push(event.item);
     }

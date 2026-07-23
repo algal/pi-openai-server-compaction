@@ -26,6 +26,7 @@ function completedSse(id = "resp_test") {
     `event: response.output_item.done\ndata: ${JSON.stringify({ type: "response.output_item.done", item: { type: "reasoning", id: "rs_test", summary: [] } })}\n\n`,
     `event: response.output_text.delta\ndata: ${JSON.stringify({ type: "response.output_text.delta", delta: "visible-ok" })}\n\n`,
     `event: response.output_item.done\ndata: ${JSON.stringify({ type: "response.output_item.done", output_index: 1, item: { type: "message", id: "msg_full", status: "completed", role: "assistant", content: [{ type: "output_text", text: "visible-ok", annotations: [] }] } })}\n\n`,
+    `event: keepalive\ndata: ${JSON.stringify({ type: "keepalive" })}\n\n`,
     `event: response.metadata\ndata: ${JSON.stringify({ type: "response.metadata", metadata: { internal: true } })}\n\n`,
     `event: response.completed\ndata: ${JSON.stringify({ type: "response.completed", response: { id, status: "completed", output: [] } })}\n\n`,
     "data: [DONE]\n\n",
@@ -121,11 +122,12 @@ test("keeps a function call and its output on the same side of a cut", () => {
   assert.ok(cut <= 1 || cut >= 3, `unsafe cut ${cut}`);
 });
 
-test("filters Codex-only metadata and restores terminal output items", async (t) => {
+test("filters Codex extension events and restores terminal output items", async (t) => {
   const fx = await fixture({ thresholdTokens: 10_000 });
   t.after(fx.close);
   const result = await post(fx.gateway.url, { model: "gpt-5.6-luna", input: [message("user", "main")], stream: true });
   assert.equal(fx.upstream.requests[0].headers["accept-encoding"], "identity");
+  assert.ok(!result.text.includes("keepalive"));
   assert.ok(!result.text.includes("response.metadata"));
   const completedBlock = result.text.split(/\r?\n\r?\n/).find((block) => block.includes("response.completed"));
   const dataLine = completedBlock.split(/\r?\n/).find((line) => line.startsWith("data:"));
