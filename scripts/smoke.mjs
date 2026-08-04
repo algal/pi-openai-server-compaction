@@ -45,6 +45,10 @@ function candidateRoots() {
   roots.add(voltaPiRoot);
   roots.add(join(voltaPiRoot, "@earendil-works", "pi-coding-agent", "node_modules"));
 
+  for (const root of [...roots]) {
+    roots.add(join(root, "@earendil-works", "pi-coding-agent", "node_modules"));
+  }
+
   return [...roots];
 }
 
@@ -87,6 +91,7 @@ for (const packageName of [
   "@earendil-works/pi-coding-agent",
   "@earendil-works/pi-agent-core",
   "@earendil-works/pi-ai",
+  "@earendil-works/pi-tui",
 ]) {
   ensureLocalPeerLink(packageName);
 }
@@ -110,6 +115,153 @@ const {
 const {
   selectInputItemsForContinuation,
 } = await import(pathToFileURL(join(repoRoot, "src", "openai-ws-stream.ts")).href);
+const {
+  OPENAI_COMPACTION_NOTICE_ENTRY_TYPE,
+  compactionNoticeLabel,
+  createPendingCompactionNotices,
+} = await import(pathToFileURL(join(repoRoot, "src", "compaction-notices.ts")).href);
+
+assert.equal(OPENAI_COMPACTION_NOTICE_ENTRY_TYPE, "openai-compaction");
+assert.equal(
+  compactionNoticeLabel("remote-applied"),
+  "[openai-compaction] remote compaction applied",
+);
+assert.equal(
+  compactionNoticeLabel("pi-text-fallback"),
+  "[openai-compaction] remote failed; used Pi text compaction",
+);
+const pendingNotices = createPendingCompactionNotices();
+assert.equal(pendingNotices.take("never-set-session"), undefined);
+pendingNotices.set("success-session", "remote-applied");
+assert.equal(pendingNotices.take("success-session"), "remote-applied");
+assert.equal(pendingNotices.take("success-session"), undefined, "take should consume the notice");
+pendingNotices.set("failed-session", "pi-text-fallback");
+pendingNotices.clear("failed-session");
+assert.equal(pendingNotices.take("failed-session"), undefined);
+pendingNotices.set("a-session", "remote-applied");
+pendingNotices.set("b-session", "pi-text-fallback");
+pendingNotices.clearAll();
+assert.equal(pendingNotices.take("a-session"), undefined, "clearAll should drop every session");
+assert.equal(pendingNotices.take("b-session"), undefined, "clearAll should drop every session");
+
+const { visibleWidth } = await import("@earendil-works/pi-tui");
+let noticeRenderer;
+const extensionHandlers = new Map();
+extensionFactory({
+  registerEntryRenderer(customType, renderer) {
+    if (customType === OPENAI_COMPACTION_NOTICE_ENTRY_TYPE) noticeRenderer = renderer;
+  },
+  registerProvider() {},
+  on(event, handler) {
+    extensionHandlers.set(event, handler);
+  },
+});
+assert.equal(typeof noticeRenderer, "function", "notice entry renderer should be registered");
+const noticeColors = [];
+for (const notice of ["remote-applied", "pi-text-fallback"]) {
+  const component = noticeRenderer(
+    { data: { notice } },
+    { expanded: true },
+    {
+      fg: (color, text) => {
+        noticeColors.push(color);
+        return text;
+      },
+    },
+  );
+  const rendered = component.render(24);
+  assert.equal(rendered.length, 1, "notice entry should always render on one line");
+  assert.ok(visibleWidth(rendered[0]) <= 24, "notice entry should honor its render width");
+  assert.equal(rendered[0][0], " ", "notice entry should align with Pi's one-column message padding");
+}
+assert.deepEqual(
+  noticeColors,
+  ["customMessageLabel", "customMessageLabel"],
+  "notice labels should use the same theme color as Pi's compaction label",
+);
+
+const activationNotifications = [];
+// Pin every setting these assertions depend on. loadConfig() reads the developer's
+// real global/project config, so an unpinned `enabled: false` would fail the smoke run.
+const pinnedEnv = {
+  PI_OPENAI_SERVER_COMPACTION_ENABLED: "1",
+  PI_OPENAI_SERVER_COMPACTION_NOTIFY: "1",
+  PI_OPENAI_SERVER_COMPACTION_PREVIOUS_RESPONSE_ID: "1",
+};
+const previousEnv = Object.fromEntries(
+  Object.keys(pinnedEnv).map((name) => [name, process.env[name]]),
+);
+Object.assign(process.env, pinnedEnv);
+try {
+  const beforeProviderRequest = extensionHandlers.get("before_provider_request");
+  assert.equal(typeof beforeProviderRequest, "function");
+  const patchedPayload = beforeProviderRequest(
+    { payload: { model: "gpt-5.4-nano", input: [] } },
+    {
+      cwd: repoRoot,
+      hasUI: true,
+      model: {
+        provider: "openai",
+        api: "openai-responses",
+        id: "gpt-5.4-nano",
+        baseUrl: "https://api.openai.com/v1",
+      },
+      sessionManager: { getSessionId: () => "request-notice-session" },
+      ui: { notify: (message) => activationNotifications.push(message) },
+    },
+  );
+  assert.equal(patchedPayload.store, true);
+
+  const codexSessionId = "codex-request-notice-session";
+  const codexModel = {
+    provider: "openai-codex",
+    api: "openai-codex-responses",
+    id: "gpt-5.4-nano",
+    baseUrl: "https://chatgpt.com/backend-api",
+  };
+  extensionHandlers.get("session_start")({}, {
+    sessionManager: {
+      getSessionId: () => codexSessionId,
+      getBranch: () => [{
+        type: "compaction",
+        id: "codex-compaction",
+        details: {
+          remoteCompaction: {
+            version: 2,
+            provider: "openai-responses-compaction",
+            implementation: "responses_compaction_v2",
+            modelKey: "openai-codex:openai-codex-responses:gpt-5.4-nano",
+            replacementHistory: [{ type: "compaction", encrypted_content: "ENCRYPTED" }],
+          },
+        },
+      }],
+    },
+  });
+  const patchedCodexPayload = beforeProviderRequest(
+    { payload: { model: "gpt-5.4-nano", input: [] } },
+    {
+      cwd: repoRoot,
+      hasUI: true,
+      model: codexModel,
+      sessionManager: { getSessionId: () => codexSessionId },
+      ui: { notify: (message) => activationNotifications.push(message) },
+    },
+  );
+  assert.deepEqual(
+    patchedCodexPayload.input,
+    [{ type: "compaction", encrypted_content: "ENCRYPTED" }],
+  );
+  assert.deepEqual(
+    activationNotifications,
+    [],
+    "direct and post-compaction Codex request patching should not emit activation notifications",
+  );
+} finally {
+  for (const [name, value] of Object.entries(previousEnv)) {
+    if (value === undefined) delete process.env[name];
+    else process.env[name] = value;
+  }
+}
 
 const targetModelKey = "openai:openai-responses:gpt-5.4-nano";
 const reconstructed = reconstructRemoteCompactionStateFromBranch({

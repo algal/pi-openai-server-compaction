@@ -54,7 +54,15 @@
 - Resume the same session.
 - Confirm remote compaction state is reconstructed from compaction details.
 
-### 7. Cost accounting
+### 7. Compaction outcome notice
+
+- Set `notify: true` (or `PI_OPENAI_SERVER_COMPACTION_NOTIFY=1`) and run `/compact` in a supported session.
+- Confirm the transcript shows `[openai-compaction] remote compaction applied` after the compaction line.
+- Confirm the notice is a separate custom entry in the session JSONL and the compaction summary is unchanged.
+- Press Escape during a later compact. Confirm `Compaction cancelled`, no new compaction entry, and no notice.
+- Set `notify: false` and compact again. Confirm `details.remoteCompaction` is still persisted but no notice appears.
+
+### 8. Cost accounting
 - Use the supported provider path for several turns.
 - Confirm footer/session stats show non-zero token/cost totals.
 - Compare rough totals against dashboard/provider logs when possible.

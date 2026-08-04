@@ -6,6 +6,13 @@
  */
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import { truncateToWidth } from "@earendil-works/pi-tui";
+import {
+  OPENAI_COMPACTION_NOTICE_ENTRY_TYPE,
+  compactionNoticeLabel,
+  createPendingCompactionNotices,
+  type CompactionNotice,
+} from "./compaction-notices.ts";
 import { isRecord, loadConfig } from "./config.ts";
 import { streamOpenAIResponsesWithPhase2B } from "./custom-stream.ts";
 import {
@@ -143,26 +150,21 @@ function extendRemoteHistoryIfCompatible(params: {
   });
 }
 
-function maybeNotifyRequestFeatures(params: {
-  notifiedModels: Set<string>;
-  hasUI: boolean;
-  notify: boolean;
-  ui: { notify(message: string, level: "info" | "warning"): void };
-  model: TargetModel;
-  features: string[];
-}): void {
-  if (!params.notify || !params.hasUI || params.features.length === 0) return;
-
-  const key = `${String(params.model.provider)}/${String(params.model.id)}`;
-  const noticeKey = `${key}:${params.features.join(",")}`;
-  if (params.notifiedModels.has(noticeKey)) return;
-
-  params.notifiedModels.add(noticeKey);
-  params.ui.notify(`OpenAI compaction active for ${key} (${params.features.join(", ")})`, "info");
-}
-
 export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
-  const notifiedModels = new Set<string>();
+  const pendingCompactionNotices = createPendingCompactionNotices();
+
+  pi.registerEntryRenderer<{ notice: CompactionNotice }>(
+    OPENAI_COMPACTION_NOTICE_ENTRY_TYPE,
+    (entry, _options, theme) => {
+      const notice = entry.data?.notice;
+      if (!notice) return undefined;
+      const label = theme.fg("customMessageLabel", compactionNoticeLabel(notice));
+      return {
+        render: (width) => [truncateToWidth(` ${label}`, Math.max(0, width), "")],
+        invalidate: () => {},
+      };
+    },
+  );
 
   pi.registerProvider("openai", {
     api: "openai-responses",
@@ -171,13 +173,16 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
 
   pi.on("session_start", (_event, ctx) => {
     const sessionId = getSessionId(ctx);
+    pendingCompactionNotices.clear(sessionId);
     clearLiveContinuation(sessionId);
     clearResponsesRequestShapeState(sessionId);
     syncRemoteState(ctx);
   });
 
   const clearBeforeSessionChange = (_event: unknown, ctx: SessionContextLike): void => {
-    clearSessionRuntimeState(getSessionId(ctx));
+    const sessionId = getSessionId(ctx);
+    pendingCompactionNotices.clear(sessionId);
+    clearSessionRuntimeState(sessionId);
   };
   pi.on("session_before_switch", clearBeforeSessionChange);
   pi.on("session_before_fork", clearBeforeSessionChange);
@@ -188,18 +193,28 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
     syncRemoteState(ctx);
   };
   pi.on("session_tree", syncAfterSessionChange);
-  pi.on("session_compact", syncAfterSessionChange);
+  pi.on("session_compact", (event, ctx) => {
+    syncAfterSessionChange(event, ctx);
+    const notice = pendingCompactionNotices.take(getSessionId(ctx));
+    if (notice) {
+      pi.appendEntry(OPENAI_COMPACTION_NOTICE_ENTRY_TYPE, { notice });
+    }
+  });
 
   pi.on("model_select", (_event, ctx) => {
     clearLiveContinuation(getSessionId(ctx));
   });
 
   pi.on("session_shutdown", () => {
+    pendingCompactionNotices.clearAll();
     clearAllContinuationState();
     releaseAllWsSessions();
   });
 
   pi.on("session_before_compact", async (event, ctx) => {
+    const sessionId = getSessionId(ctx);
+    pendingCompactionNotices.clear(sessionId);
+
     const cfg = loadConfig(ctx.cwd);
     const model = ctx.model;
     if (!cfg.enabled || !model || !supportsRemoteCompactionModel(model)) return undefined;
@@ -208,7 +223,6 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
     if (!auth.ok || !auth.apiKey) return undefined;
 
     const tools = buildToolsPayload(pi.getAllTools(), pi.getActiveTools());
-    const sessionId = getSessionId(ctx);
     const branchEntries = event.branchEntries as BranchEntry[];
     const remoteState = getMatchingRemoteState(sessionId, model);
     const observedRequestShape = getResponsesRequestShapeState(sessionId);
@@ -253,6 +267,9 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
     ]);
 
     if (remoteResult.status !== "fulfilled") {
+      if (cfg.notify && !event.signal.aborted) {
+        pendingCompactionNotices.set(sessionId, "pi-text-fallback");
+      }
       if (localResult.status === "fulfilled") {
         return { compaction: localResult.value };
       }
@@ -276,6 +293,8 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
             firstKeptEntryId: event.preparation.firstKeptEntryId,
             tokensBefore: event.preparation.tokensBefore,
           };
+
+    if (cfg.notify) pendingCompactionNotices.set(sessionId, "remote-applied");
 
     return {
       compaction: {
@@ -332,19 +351,10 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
 
     if (isOpenAICodexResponsesModel(model)) {
       if (!remoteState) return undefined;
-      const payload = applyRemoteHistoryPayloadPatch({
+      return applyRemoteHistoryPayloadPatch({
         payload: event.payload,
         explicitHistory: normalizeResponseItemsForPrompt(remoteState.explicitHistory, model) as unknown[],
       });
-      maybeNotifyRequestFeatures({
-        notifiedModels,
-        hasUI: ctx.hasUI,
-        notify: cfg.notify,
-        ui: ctx.ui,
-        model,
-        features: ["remote_compaction_history"],
-      });
-      return payload;
     }
 
     if (!supportsPreviousResponseId(model, cfg)) return undefined;
@@ -360,22 +370,6 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
       model,
       cfg,
       previousResponseId,
-    });
-
-    const features = ["store=true", "context_management"];
-    if (remoteState !== undefined) {
-      features.push("remote_compaction_history");
-    } else if (previousResponseId) {
-      features.push("previous_response_id");
-    }
-
-    maybeNotifyRequestFeatures({
-      notifiedModels,
-      hasUI: ctx.hasUI,
-      notify: cfg.notify,
-      ui: ctx.ui,
-      model,
-      features,
     });
 
     return payload;

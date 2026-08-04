@@ -53,6 +53,7 @@ In practice, that means keeping two representations of context alive at once:
 5. If remote compaction succeeds, the returned opaque replacement history is stored in:
    - `CompactionEntry.details.remoteCompaction`
 6. Pi still keeps a text summary so the session remains understandable and portable.
+7. When `notify` is on, `src/index.ts` records the outcome and appends a one-line custom entry on `session_compact`. The entry is separate from the compaction entry and does not alter the summary.
 
 ### Post-compaction continuation
 
@@ -71,6 +72,7 @@ Persisted state lives in the session JSONL file and survives reloads:
 - normal Pi `message` entries
 - Pi `compaction` entries
 - `compaction.details.remoteCompaction`
+- `openai-compaction` custom entries, when `notify` is on (transcript-only; never sent to the model)
 
 The persisted `remoteCompaction` payload is the important bridge to Codex-style behavior. Version 2 contains retained user messages plus the opaque `compaction` item returned by Responses compaction v2. Version 1 entries from the legacy `/responses/compact` implementation remain readable for session compatibility.
 
@@ -101,6 +103,7 @@ Responsibilities:
 - merge local and remote compaction results
 - reconstruct remote state on session start/tree/compaction
 - clear ephemeral state on switch/fork/tree/model/shutdown
+- register the compaction-outcome entry renderer and append the notice entry after compaction
 
 If you want to understand the extension as a whole, start here.
 
@@ -163,6 +166,18 @@ Loads and normalizes configuration from:
 Stores ephemeral per-session runtime state only.
 
 It does **not** persist remote compaction artifacts itself. Those live in Pi session entries.
+
+### `src/compaction-notices.ts`
+
+Notice text and pending per-session notice state for the opt-in compaction-outcome
+line in the transcript.
+
+Responsibilities:
+- define the custom entry type and the label for each outcome
+- hold the notice produced by `session_before_compact` until `session_compact` commits
+
+It has no TUI dependency. Rendering lives in `src/index.ts`, which is the only place
+that touches `@earendil-works/pi-tui`.
 
 ### `src/custom-stream.ts`
 

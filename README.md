@@ -147,7 +147,9 @@ Environment overrides:
 | `PI_OPENAI_SERVER_COMPACTION_THRESHOLD`            | Explicit compact threshold (tokens)                         |
 | `PI_OPENAI_SERVER_COMPACTION_RATIO`                | Compact threshold as ratio of context window (default: 0.7) |
 | `PI_OPENAI_SERVER_COMPACTION_PREVIOUS_RESPONSE_ID` | Enable/disable `previous_response_id`                       |
-| `PI_OPENAI_SERVER_COMPACTION_NOTIFY`               | Show UI notifications when features activate                |
+| `PI_OPENAI_SERVER_COMPACTION_NOTIFY`               | Show a notice after compaction                              |
+
+`notify` controls post-compaction notices. When enabled, Pi adds a one-line transcript notice indicating whether OpenAI remote compaction was applied or Pi text compaction was used. The default is `notify: false`.
 
 ## Troubleshooting
 
@@ -157,7 +159,7 @@ If something goes wrong:
 2. **Bypass entirely:** run Pi with `--no-extensions`
 3. **Reload:** run `/reload` in Pi to re-initialize extensions
 4. **Uninstall:** `pi remove pi-openai-server-compaction`
-5. **Inspect:** check your session JSONL for `compaction` entries with `details.remoteCompaction` to see if remote compaction was recorded
+5. **Inspect:** enable `notify` for a compaction notice, or check session JSONL for `details.remoteCompaction`
 
 ## Testing
 
