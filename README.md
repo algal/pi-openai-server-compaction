@@ -75,7 +75,7 @@ pi -e ./src/index.ts --model openai/gpt-5.6-luna
 ## Requirements
 
 - Node `>= 22`
-- Pi `>=0.80.9 <0.81.0`
+- Pi `>=0.80.9 <0.84.0` (verified against published 0.80.9, 0.80.10, 0.81.0, 0.81.1, 0.82.0, 0.82.1, 0.83.0)
 - Auth/config for the model you want to use must already work in Pi
 - A supported OpenAI Responses model, e.g. `openai/gpt-5.6-sol` or `openai-codex/gpt-5.6-sol`
 

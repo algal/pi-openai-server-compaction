@@ -3,6 +3,7 @@
 This changelog intentionally starts at **0.1.0**.
 
 ## Unreleased
+- widen the declared Pi peerDependency range to `>=0.80.9 <0.84.0`; unchanged implementation verified against all seven published versions in that range (0.80.9-0.83.0)
 - target Pi 0.80.9 and the `@earendil-works/*` package namespace
 - align compaction fallback, Responses payload normalization, Codex identity headers, and WebSocket behavior with Pi 0.80.9
 - replace the legacy `/responses/compact` call with Codex's current Responses compaction v2 protocol

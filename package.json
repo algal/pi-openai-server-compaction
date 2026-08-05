@@ -38,9 +38,9 @@
     "extensions": ["./src/index.ts"]
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": ">=0.80.9 <0.81.0",
-    "@earendil-works/pi-ai": ">=0.80.9 <0.81.0",
-    "@earendil-works/pi-agent-core": ">=0.80.9 <0.81.0"
+    "@earendil-works/pi-coding-agent": ">=0.80.9 <0.84.0",
+    "@earendil-works/pi-ai": ">=0.80.9 <0.84.0",
+    "@earendil-works/pi-agent-core": ">=0.80.9 <0.84.0"
   },
   "peerDependenciesMeta": {
     "@earendil-works/pi-coding-agent": { "optional": true },
