@@ -312,6 +312,24 @@ assert.equal(compactionHeaders["x-extra"], "yes");
 assert.equal(compactionHeaders["x-codex-beta-features"], "remote_compaction_v2");
 assert.equal(compactionHeaders.accept, "text/event-stream");
 
+const nullableHeaders = buildRemoteCompactionHeaders({
+  model: {
+    provider: "openai",
+    api: "openai-responses",
+    id: "gpt-5.4-nano",
+  },
+  apiKey: "sk-test",
+  headers: {
+    Authorization: "Bearer untrusted-override",
+    "x-preserved": "yes",
+    "x-suppressed": null,
+  },
+});
+assert.equal(nullableHeaders["x-preserved"], "yes");
+assert.equal("x-suppressed" in nullableHeaders, false);
+assert.equal(nullableHeaders.authorization, "Bearer sk-test");
+assert.equal("Authorization" in nullableHeaders, false);
+
 const websocketHeaders = buildCodexWebSocketHeaders("session-123");
 assert.equal(websocketHeaders["x-client-request-id"], "session-123");
 assert.equal(websocketHeaders.session_id, "session-123");

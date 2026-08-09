@@ -182,7 +182,8 @@ Important safety rules:
 - in-memory remote history is only extended while the active model still matches the compaction model
 - reconstructed remote history only replays post-compaction turns whose assistant completions match the compaction model, avoiding cross-model pollution after resume/tree reload
 - live `previous_response_id` state is cleared on key session/model lifecycle boundaries
-- HTTP fallback remains available if the WS path is unavailable or unsafe
+- HTTP fallback remains available if the WS path is unavailable or unsafe; it delegates to Pi's built-in Responses stream and normal provider hooks
+- nullable provider headers are omitted from direct remote requests rather than serialized; extension-generated authentication and protocol headers remain in place
 
 ## Why both local summary and remote compaction exist
 

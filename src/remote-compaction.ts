@@ -19,7 +19,7 @@ import {
   serializeConversation,
   type CompactionResult,
 } from "@earendil-works/pi-coding-agent";
-import { calculateCost, type Model, type Usage } from "@earendil-works/pi-ai";
+import { calculateCost, type Model, type ProviderHeaders, type Usage } from "@earendil-works/pi-ai";
 import { complete } from "@earendil-works/pi-ai/compat";
 import { isRecord } from "./config.ts";
 import {
@@ -198,6 +198,19 @@ function extractCodexAccountId(token: string): string {
   return accountId;
 }
 
+function providerHeadersToRecord(headers?: ProviderHeaders): Record<string, string> {
+  // Pi 0.84 allows null header values to suppress a core-provider default.
+  // This extension constructs its own mandatory auth/format headers, so never
+  // serialize null as the string "null" or let it remove/override safeguards.
+  const extensionOwnedHeaders = new Set(["authorization", "accept", "content-type"]);
+  return Object.fromEntries(
+    Object.entries(headers ?? {}).filter(
+      (entry): entry is [string, string] =>
+        typeof entry[1] === "string" && !extensionOwnedHeaders.has(entry[0].toLowerCase()),
+    ),
+  );
+}
+
 function withRemoteCompactionV2Feature(headers: Record<string, string>): Record<string, string> {
   const configuredFeatures = Object.entries(headers)
     .find(([name]) => name.toLowerCase() === "x-codex-beta-features")?.[1]
@@ -217,14 +230,14 @@ function withRemoteCompactionV2Feature(headers: Record<string, string>): Record<
 export function buildRemoteCompactionHeaders(params: {
   model: Model<any>;
   apiKey: string;
-  headers?: Record<string, string>;
+  headers?: ProviderHeaders;
   sessionId?: string;
 }): Record<string, string> {
   const codexIdentityHeaders = buildCodexIdentityHeaders(params.sessionId);
   const commonHeaders = withRemoteCompactionV2Feature({
-    authorization: `Bearer ${params.apiKey}`,
+    ...providerHeadersToRecord(params.headers),
     ...codexIdentityHeaders,
-    ...(params.headers ?? {}),
+    authorization: `Bearer ${params.apiKey}`,
     accept: "text/event-stream",
     "content-type": "application/json",
   });
@@ -681,7 +694,7 @@ export async function generatePortableSummary(params: {
   messages: AgentMessage[];
   model: Model<any>;
   apiKey: string;
-  headers?: Record<string, string>;
+  headers?: ProviderHeaders;
   customInstructions?: string;
   signal?: AbortSignal;
   firstKeptEntryId: string;
@@ -725,7 +738,7 @@ export async function generateBestEffortLocalSummary(params: {
   messages: AgentMessage[];
   model: Model<any>;
   apiKey: string;
-  headers?: Record<string, string>;
+  headers?: ProviderHeaders;
   customInstructions?: string;
   signal?: AbortSignal;
   thinkingLevel?: ThinkingLevel;
@@ -739,7 +752,7 @@ export async function generateBestEffortLocalSummary(params: {
       params.preparation,
       params.model,
       params.apiKey,
-      params.headers,
+      providerHeadersToRecord(params.headers),
       params.customInstructions,
       params.signal,
       params.thinkingLevel,
@@ -919,7 +932,7 @@ export function parseRemoteCompactionV2Events(events: unknown[]): RemoteCompacti
 export async function callRemoteCompactionEndpoint(params: {
   model: Model<any>;
   apiKey: string;
-  headers?: Record<string, string>;
+  headers?: ProviderHeaders;
   sessionId?: string;
   input: ResponseItem[];
   instructions?: string;

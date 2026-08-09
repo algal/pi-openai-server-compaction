@@ -1,5 +1,17 @@
 # Validation
 
+## Pi compatibility
+
+Supports Pi `>=0.80.9 <0.85.0`; source typechecking and offline smoke tests
+passed with both 0.80.9 and 0.84.1 peer packages. The 0.84.1 RPC extension-load
+smoke also passed.
+
+One Codex live run passed all applicable cases. A later retry fell back to the
+portable summary during resume, so its deliberately redacted recall check
+returned `Unknown`; remote-artifact availability remains provider-service
+dependent. Direct-OpenAI live coverage needs an `openai` API key, which is not
+configured locally.
+
 ## Current Responses compaction v2 validation
 
 The full live Pi RPC suite passes with both:

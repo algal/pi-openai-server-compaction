@@ -75,7 +75,7 @@ pi -e ./src/index.ts --model openai/gpt-5.6-luna
 ## Requirements
 
 - Node `>= 22`
-- Pi `>=0.80.9 <0.81.0`
+- Pi `>=0.80.9 <0.85.0` (validated with locally installed Pi 0.84.1)
 - Auth/config for the model you want to use must already work in Pi
 - A supported OpenAI Responses model, e.g. `openai/gpt-5.6-sol` or `openai-codex/gpt-5.6-sol`
 
@@ -184,7 +184,7 @@ PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai-codex/gpt-5.6-sol npm run test:liv
 - Pi's local JSONL/tree model remains authoritative
 - Opaque remote compaction artifacts are only reused for compatible OpenAI Responses turns
 - Switching to a different provider/model falls back to Pi's text-summary portability path
-- Compaction usage/cost is captured in details but not yet folded into Pi's `get_session_stats()` (requires Pi core changes)
+- Compaction usage/cost is captured in `details.remoteCompaction.usage`; session-total integration varies by Pi core version
 
 ## Repo layout
 
