@@ -101,6 +101,7 @@ const {
   buildRemoteCompactionRequestBody,
   buildRemoteCompactionV2History,
   extractRemoteCompactionDetails,
+  messageToResponseItems,
   normalizeResponseItemsForPrompt,
   parseRemoteCompactionV2Events,
   processCompactedHistory,
@@ -198,6 +199,80 @@ assert.match(reconstructedJson, /KEEP_ME_TWO/);
 assert.match(reconstructedJson, /KEEP_REPLY_TWO/);
 assert.doesNotMatch(reconstructedJson, /DROP_ME/);
 assert.doesNotMatch(reconstructedJson, /DROP_REPLY/);
+
+// Regression: everything Pi would put in the LLM context has to survive into the
+// replacement history. That history *replaces* Pi's request input once a remote
+// compaction exists, so anything missing here is dropped from the request itself.
+//
+// Pi flattens four non-LLM message kinds into user-role context messages
+// (`convertToLlm`): custom (extension-injected context), bashExecution, branchSummary
+// and compactionSummary. Before this was handled, each one converted to zero items.
+const flattenedKinds = [
+  [{ role: "custom", customType: "note", content: "CUSTOM_NOTE_TEXT", display: false, timestamp: 0 }, /CUSTOM_NOTE_TEXT/],
+  [{ role: "bashExecution", command: "echo hi", output: "BASH_OUTPUT_TEXT", exitCode: 0, cancelled: false, truncated: false, timestamp: 0 }, /BASH_OUTPUT_TEXT/],
+  [{ role: "branchSummary", summary: "BRANCH_SUMMARY_TEXT", fromId: "x", timestamp: 0 }, /BRANCH_SUMMARY_TEXT/],
+  [{ role: "compactionSummary", summary: "COMPACTION_SUMMARY_TEXT", tokensBefore: 1, timestamp: 0 }, /COMPACTION_SUMMARY_TEXT/],
+];
+for (const [message, marker] of flattenedKinds) {
+  const items = messageToResponseItems(message);
+  assert.ok(items.length > 0, `${message.role} message must not convert to zero response items`);
+  assert.equal(items[0].type, "message");
+  assert.equal(items[0].role, "user", `${message.role} must flatten to a user-role context message`);
+  assert.match(JSON.stringify(items), marker, `${message.role} content must survive conversion`);
+}
+
+// A bashExecution message Pi excludes from context must stay excluded.
+assert.deepEqual(
+  messageToResponseItems({
+    role: "bashExecution",
+    command: "echo secret",
+    output: "EXCLUDED_TEXT",
+    exitCode: 0,
+    cancelled: false,
+    truncated: false,
+    excludeFromContext: true,
+    timestamp: 0,
+  }),
+  [],
+);
+
+// Regression: extension messages are persisted as `custom_message` branch entries rather
+// than `message` entries, and a branch walk that only reads `message` entries loses them.
+// Regression: a turn that has not been answered yet - the newest entry being a user or
+// extension message, as when a session is resumed - must still reach the provider.
+const trailingState = reconstructRemoteCompactionStateFromBranch({
+  branchEntries: [
+    {
+      type: "compaction",
+      id: "cmp-2",
+      details: {
+        remoteCompaction: {
+          version: 2,
+          provider: "openai-responses-compaction",
+          implementation: "responses_compaction_v2",
+          modelKey: targetModelKey,
+          replacementHistory: [{ type: "compaction", encrypted_content: "ENCRYPTED" }],
+        },
+      },
+    },
+    {
+      type: "custom_message",
+      id: "custom-1",
+      customType: "supervision",
+      content: "INJECTED_EXTENSION_NOTE",
+      display: false,
+    },
+    {
+      type: "message",
+      id: "user-trailing",
+      message: { role: "user", content: [{ type: "text", text: "UNANSWERED_USER_TURN" }] },
+    },
+  ],
+});
+assert.ok(trailingState, "expected reconstructed state for the trailing-turn branch");
+const trailingJson = JSON.stringify(trailingState.explicitHistory);
+assert.match(trailingJson, /INJECTED_EXTENSION_NOTE/, "extension custom_message entry must reach the provider");
+assert.match(trailingJson, /UNANSWERED_USER_TURN/, "an unanswered trailing user turn must reach the provider");
 
 const requestBody = buildRemoteCompactionRequestBody({
   model: {

@@ -32,6 +32,7 @@ import {
   messageToResponseItems,
   messagesToResponseItems,
   normalizeResponseItemsForPrompt,
+  branchEntryToContextMessage,
   reconstructRemoteCompactionStateFromBranch,
 } from "./remote-compaction.ts";
 import {
@@ -69,9 +70,12 @@ function getSessionId(ctx: SessionContextLike): string {
 }
 
 function getBranchMessages(branchEntries: BranchEntry[]): AgentMessage[] {
-  return branchEntries.flatMap((entry) =>
-    entry.type === "message" && entry.message ? [entry.message as AgentMessage] : [],
-  );
+  // Extension messages are `custom_message` entries, not `message` entries; reading only
+  // the latter would leave injected context out of the compaction input entirely.
+  return branchEntries.flatMap((entry) => {
+    const message = branchEntryToContextMessage(entry);
+    return message ? [message] : [];
+  });
 }
 
 function getBranchMessageCount(branchEntries: BranchEntry[]): number {
