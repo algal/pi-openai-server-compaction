@@ -111,6 +111,11 @@ const {
 const {
   selectInputItemsForContinuation,
 } = await import(pathToFileURL(join(repoRoot, "src", "openai-ws-stream.ts")).href);
+const {
+  clearAllContinuationState,
+  getRemoteCompactionState,
+  setRemoteCompactionState,
+} = await import(pathToFileURL(join(repoRoot, "src", "state.ts")).href);
 
 const targetModelKey = "openai:openai-responses:gpt-5.4-nano";
 const reconstructed = reconstructRemoteCompactionStateFromBranch({
@@ -273,6 +278,124 @@ assert.ok(trailingState, "expected reconstructed state for the trailing-turn bra
 const trailingJson = JSON.stringify(trailingState.explicitHistory);
 assert.match(trailingJson, /INJECTED_EXTENSION_NOTE/, "extension custom_message entry must reach the provider");
 assert.match(trailingJson, /UNANSWERED_USER_TURN/, "an unanswered trailing user turn must reach the provider");
+
+// Regression: pi.sendMessage() appends idle custom messages directly to the session without
+// emitting the extension message_end hook. Reconcile persisted branch entries before each
+// provider request so the live remote history cannot remain stale until /reload.
+const registeredHandlers = new Map();
+extensionFactory({
+  registerProvider() {},
+  on(event, handler) {
+    registeredHandlers.set(event, handler);
+  },
+  getAllTools: () => [],
+  getActiveTools: () => [],
+  getThinkingLevel: () => "low",
+});
+const liveSessionId = "live-custom-message-session";
+const liveModel = {
+  provider: "openai-codex",
+  api: "openai-codex-responses",
+  id: "gpt-5.4",
+  baseUrl: "https://chatgpt.com/backend-api",
+  input: ["text"],
+};
+const liveModelKey = "openai-codex:openai-codex-responses:gpt-5.4";
+const liveReplacementHistory = [{ type: "compaction", encrypted_content: "LIVE_ENCRYPTED" }];
+setRemoteCompactionState(liveSessionId, {
+  compactionEntryId: "live-compaction",
+  modelKey: liveModelKey,
+  replacementHistory: liveReplacementHistory,
+  explicitHistory: liveReplacementHistory,
+});
+const liveBranch = [
+  {
+    type: "compaction",
+    id: "live-compaction",
+    details: {
+      remoteCompaction: {
+        version: 2,
+        provider: "openai-responses-compaction",
+        implementation: "responses_compaction_v2",
+        modelKey: liveModelKey,
+        replacementHistory: liveReplacementHistory,
+      },
+    },
+  },
+  {
+    type: "custom_message",
+    id: "idle-custom-result",
+    customType: "supervised-fork-result",
+    content: "LIVE_IDLE_CUSTOM_RESULT",
+    display: true,
+  },
+];
+const beforeProviderRequest = registeredHandlers.get("before_provider_request");
+assert.equal(typeof beforeProviderRequest, "function", "expected before_provider_request handler");
+const livePatchedPayload = await beforeProviderRequest(
+  { payload: { model: "gpt-5.4", input: [] } },
+  {
+    cwd: repoRoot,
+    model: liveModel,
+    hasUI: false,
+    ui: { notify() {} },
+    sessionManager: {
+      getSessionId: () => liveSessionId,
+      getBranch: () => liveBranch,
+    },
+  },
+);
+assert.match(
+  JSON.stringify(livePatchedPayload?.input),
+  /LIVE_IDLE_CUSTOM_RESULT/,
+  "an idle pi.sendMessage custom result must enter live remote-compaction history without /reload",
+);
+
+// The same reconciliation must happen before compaction. Otherwise preflight auto-compaction
+// can bake a stale explicitHistory into a new durable replacement before any provider request.
+setRemoteCompactionState(liveSessionId, {
+  compactionEntryId: "live-compaction",
+  modelKey: liveModelKey,
+  replacementHistory: liveReplacementHistory,
+  explicitHistory: liveReplacementHistory,
+});
+const compactController = new AbortController();
+compactController.abort();
+const beforeCompact = registeredHandlers.get("session_before_compact");
+assert.equal(typeof beforeCompact, "function", "expected session_before_compact handler");
+await beforeCompact(
+  {
+    branchEntries: liveBranch,
+    preparation: {
+      firstKeptEntryId: "idle-custom-result",
+      tokensBefore: 1,
+      messagesToSummarize: [],
+      messagesToKeep: [],
+    },
+    customInstructions: undefined,
+    signal: compactController.signal,
+  },
+  {
+    cwd: repoRoot,
+    model: liveModel,
+    hasUI: false,
+    ui: { notify() {} },
+    modelRegistry: {
+      getApiKeyAndHeaders: async () => ({ ok: true, apiKey: "test-key", headers: undefined }),
+    },
+    getSystemPrompt: () => "system",
+    sessionManager: {
+      getSessionId: () => liveSessionId,
+      getBranch: () => liveBranch,
+    },
+  },
+);
+assert.match(
+  JSON.stringify(getRemoteCompactionState(liveSessionId)?.explicitHistory),
+  /LIVE_IDLE_CUSTOM_RESULT/,
+  "preflight compaction must reconcile idle custom results before creating replacement history",
+);
+clearAllContinuationState();
 
 const requestBody = buildRemoteCompactionRequestBody({
   model: {

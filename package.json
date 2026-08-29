@@ -35,17 +35,25 @@
     "LICENSE.md"
   ],
   "pi": {
-    "extensions": ["./src/index.ts"]
+    "extensions": [
+      "./src/index.ts"
+    ]
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": ">=0.80.9 <0.81.0",
-    "@earendil-works/pi-ai": ">=0.80.9 <0.81.0",
-    "@earendil-works/pi-agent-core": ">=0.80.9 <0.81.0"
+    "@earendil-works/pi-agent-core": ">=0.80.9 <0.85.0",
+    "@earendil-works/pi-ai": ">=0.80.9 <0.85.0",
+    "@earendil-works/pi-coding-agent": ">=0.80.9 <0.85.0"
   },
   "peerDependenciesMeta": {
-    "@earendil-works/pi-coding-agent": { "optional": true },
-    "@earendil-works/pi-ai": { "optional": true },
-    "@earendil-works/pi-agent-core": { "optional": true }
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    },
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "@earendil-works/pi-agent-core": {
+      "optional": true
+    }
   },
   "scripts": {
     "smoke": "node --experimental-strip-types ./scripts/smoke.mjs",
@@ -57,9 +65,9 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@earendil-works/pi-agent-core": "0.80.9",
-    "@earendil-works/pi-ai": "0.80.9",
-    "@earendil-works/pi-coding-agent": "0.80.9",
+    "@earendil-works/pi-agent-core": "0.84.3",
+    "@earendil-works/pi-ai": "0.84.3",
+    "@earendil-works/pi-coding-agent": "0.84.3",
     "@types/node": "^24.10.0",
     "@types/ws": "^8.18.1",
     "typescript": "^5.9.3"

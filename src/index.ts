@@ -69,6 +69,15 @@ function getSessionId(ctx: SessionContextLike): string {
   return ctx.sessionManager.getSessionId();
 }
 
+function withoutDeletedHeaders(
+  headers: Record<string, string | null> | undefined,
+): Record<string, string> | undefined {
+  if (!headers) return undefined;
+  return Object.fromEntries(
+    Object.entries(headers).filter((entry): entry is [string, string] => entry[1] !== null),
+  );
+}
+
 function getBranchMessages(branchEntries: BranchEntry[]): AgentMessage[] {
   // Extension messages are `custom_message` entries, not `message` entries; reading only
   // the latter would leave injected context out of the compaction input entirely.
@@ -102,20 +111,24 @@ function clearSessionRuntimeState(sessionId: string | undefined): void {
   clearResponsesRequestShapeState(sessionId);
 }
 
-function syncRemoteState(ctx: SessionContextLike): void {
-  const sessionId = getSessionId(ctx);
-  const branchEntries = ctx.sessionManager.getBranch() as Array<{
-    type: string;
-    id: string;
-    details?: unknown;
-    message?: AgentMessage;
-  }>;
-  const state = reconstructRemoteCompactionStateFromBranch({ branchEntries });
+function syncRemoteStateFromBranch(sessionId: string, branchEntries: BranchEntry[]): void {
+  const state = reconstructRemoteCompactionStateFromBranch({
+    branchEntries: branchEntries as Array<{
+      type: string;
+      id: string;
+      details?: unknown;
+      message?: AgentMessage;
+    }>,
+  });
   if (state) {
     setRemoteCompactionState(sessionId, state);
   } else {
     clearRemoteCompactionState(sessionId);
   }
+}
+
+function syncRemoteState(ctx: SessionContextLike): void {
+  syncRemoteStateFromBranch(getSessionId(ctx), ctx.sessionManager.getBranch());
 }
 
 function getMatchingRemoteState(
@@ -214,6 +227,10 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
     const tools = buildToolsPayload(pi.getAllTools(), pi.getActiveTools());
     const sessionId = getSessionId(ctx);
     const branchEntries = event.branchEntries as BranchEntry[];
+    // Idle pi.sendMessage() calls do not emit extension message_end. Reconcile
+    // the authoritative pre-compaction branch before creating replacement history,
+    // otherwise an idle custom message can be durably compacted away.
+    syncRemoteStateFromBranch(sessionId, branchEntries);
     const remoteState = getMatchingRemoteState(sessionId, model);
     const observedRequestShape = getResponsesRequestShapeState(sessionId);
     const fullBranchMessages = getBranchMessages(branchEntries);
@@ -234,7 +251,7 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
         messages: fullBranchMessages,
         model,
         apiKey: auth.apiKey,
-        headers: auth.headers,
+        headers: withoutDeletedHeaders(auth.headers),
         customInstructions: event.customInstructions,
         signal: event.signal,
         thinkingLevel,
@@ -244,7 +261,7 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
       callRemoteCompactionEndpoint({
         model,
         apiKey: auth.apiKey,
-        headers: auth.headers,
+        headers: withoutDeletedHeaders(auth.headers),
         sessionId,
         input: promptResponseItems,
         instructions: ctx.getSystemPrompt(),
@@ -332,6 +349,10 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
       reasoning: extractResponsesReasoningConfig(event.payload),
       text: extractResponsesTextConfig(event.payload),
     });
+    // Idle pi.sendMessage() calls persist custom messages without emitting the
+    // extension message_end hook. Reconcile the durable branch before replacing
+    // Pi's provider input so those messages cannot remain invisible until reload.
+    syncRemoteState(ctx);
     const remoteState = getMatchingRemoteState(sessionId, model);
 
     if (isOpenAICodexResponsesModel(model)) {
