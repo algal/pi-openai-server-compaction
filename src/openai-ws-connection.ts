@@ -143,7 +143,7 @@ export interface ResponseCreateEvent {
   top_p?: number;
   metadata?: Record<string, string>;
   reasoning?: {
-    effort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+    effort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
     summary?: "auto" | "concise" | "detailed" | null;
   };
   truncation?: "auto" | "disabled";
@@ -239,6 +239,10 @@ export class OpenAIWebSocketManager extends EventEmitter {
     this.send({
       type: "response.create",
       generate: false,
+      // The endpoint validates common Responses parameters even for warm-up
+      // requests and rejects the event with 400 "Missing required parameter:
+      // 'input'" when the field is absent.
+      input: [],
       model: params.model,
       ...(params.tools ? { tools: params.tools } : {}),
       ...(params.instructions ? { instructions: params.instructions } : {}),

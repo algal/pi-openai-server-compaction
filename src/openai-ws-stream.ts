@@ -38,6 +38,7 @@ import {
   type OpenAIResponsesAssistantPhase,
   type OpenAIWebSocketEvent,
   type OpenAIWebSocketManagerOptions,
+  type OutputItem,
   type ResponseObject,
 } from "./openai-ws-connection.ts";
 import {
@@ -126,11 +127,15 @@ function extractCacheWriteTokens(response: ResponseObject): number {
 function resolveResponsesReasoning(
   model: Model<any>,
   options: WsOptions | undefined,
-): { effort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh"; summary?: "auto" | "concise" | "detailed" | null } | undefined {
+): { effort?: "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max"; summary?: "auto" | "concise" | "detailed" | null } | undefined {
   if (!model.reasoning) return undefined;
   const configured = thinkingLevelToResponsesReasoning(options?.reasoning);
   if (!configured) {
-    return model.provider !== "github-copilot" ? { effort: "none" } : undefined;
+    // Omit the reasoning field entirely and let the server apply its default.
+    // The previous fallback of effort "none" is rejected by current reasoning
+    // models (400: 'none' is not supported; supported values are low through
+    // max).
+    return undefined;
   }
   return {
     effort: configured.effort,
@@ -247,6 +252,40 @@ function responseFromEvent(event: OpenAIWebSocketEvent): ResponseObject | undefi
 function eventString(event: OpenAIWebSocketEvent, key: string): string | undefined {
   const value = (event as Record<string, unknown>)[key];
   return typeof value === "string" ? value : undefined;
+}
+
+/**
+ * Server `error` events may carry the details either as flat top-level fields
+ * (`{ type: "error", message, code }`) or nested under an `error` object
+ * (`{ type: "error", error: { type, code, message, param } }`), mirroring the
+ * Responses API HTTP error shape. Read both.
+ */
+function errorEventDetails(event: OpenAIWebSocketEvent): { message?: string; code?: string } {
+  const nested = (event as Record<string, unknown>).error;
+  if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+    const e = nested as Record<string, unknown>;
+    return {
+      message: typeof e.message === "string" ? e.message : undefined,
+      code: typeof e.code === "string" ? e.code : undefined,
+    };
+  }
+  return {};
+}
+
+function describeErrorEvent(event: OpenAIWebSocketEvent): string {
+  const nested = errorEventDetails(event);
+  const message = eventString(event, "message") ?? nested.message ?? "Unknown error";
+  const code = eventString(event, "code") ?? nested.code ?? "unknown";
+  return `${message} (code=${code})`;
+}
+
+function debugDumpErrorEvent(event: OpenAIWebSocketEvent): void {
+  if (process.env.PI_OPENAI_SERVER_COMPACTION_DEBUG !== "1") return;
+  try {
+    console.error(`[openai-server-compaction] error event: ${JSON.stringify(event).slice(0, 2000)}`);
+  } catch {
+    // ignore
+  }
 }
 
 function encodeAssistantTextSignature(params: {
@@ -689,12 +728,8 @@ async function runWarmUp(params: {
         reject(new Error(`warm-up failed: ${responseFromEvent(event)?.error?.message ?? "Response failed"}`));
       } else if (event.type === "error") {
         cleanup();
-        reject(
-          new Error(
-            `warm-up error: ${eventString(event, "message") ?? "Unknown error"} ` +
-              `(code=${eventString(event, "code") ?? "unknown"})`,
-          ),
-        );
+        debugDumpErrorEvent(event);
+        reject(new Error(`warm-up error: ${describeErrorEvent(event)}`));
       }
     });
 
@@ -897,8 +932,16 @@ export function createOpenAIWebSocketStreamFn(
         });
 
         const nextPayload = (await options?.onPayload?.(payload, model)) ?? payload;
+        // The WebSocket endpoint rejects stored responses (400 "Store must be set
+        // to false"), and HTTP-transport server-side compaction fields are
+        // meaningless here. The before_provider_request hook patches payloads for
+        // the HTTP Responses API (store=true, context_management); undo that here
+        // so both halves of this package agree on the WS request shape.
+        const wsPayload = nextPayload as Record<string, unknown>;
+        wsPayload.store = false;
+        delete wsPayload.context_management;
         try {
-          session.manager.send(nextPayload as Parameters<OpenAIWebSocketManager["send"]>[0]);
+          session.manager.send(wsPayload as Parameters<OpenAIWebSocketManager["send"]>[0]);
           session.lastRequestKey = requestKey;
         } catch (error) {
           releaseWsSession(sessionId);
@@ -917,6 +960,11 @@ export function createOpenAIWebSocketStreamFn(
 
         const capturedContextLength = context.messages.length;
         let textStarted = false;
+        // The endpoint's response.completed event carries an empty output array;
+        // final output items only arrive via streamed response.output_item.done
+        // events. Accumulate them and fall back to them when the completed
+        // response has no output.
+        const streamedOutputItems: OutputItem[] = [];
         await new Promise<void>((resolve, reject) => {
           const abortHandler = () => {
             cleanup();
@@ -950,8 +998,10 @@ export function createOpenAIWebSocketStreamFn(
               }
               cleanup();
               session.lastContextLength = capturedContextLength;
+              const outputItems =
+                response.output && response.output.length > 0 ? response.output : streamedOutputItems;
               const assistantMsg = buildAssistantMessageFromResponse(
-                response,
+                { ...response, output: outputItems },
                 model,
                 typedOptions?.serviceTier,
               );
@@ -974,12 +1024,15 @@ export function createOpenAIWebSocketStreamFn(
               );
             } else if (event.type === "error") {
               cleanup();
-              reject(
-                new Error(
-                  `OpenAI WebSocket error: ${eventString(event, "message") ?? "Unknown error"} ` +
-                    `(code=${eventString(event, "code") ?? "unknown"})`,
-                ),
-              );
+              debugDumpErrorEvent(event);
+              reject(new Error(`OpenAI WebSocket error: ${describeErrorEvent(event)}`));
+            } else if (event.type === "response.output_item.done") {
+              const record = event as Record<string, unknown>;
+              const item = record.item;
+              if (item && typeof item === "object") {
+                const index = typeof record.output_index === "number" ? record.output_index : streamedOutputItems.length;
+                streamedOutputItems[index] = item as OutputItem;
+              }
             } else if (event.type === "response.output_text.delta") {
               const delta = eventString(event, "delta");
               if (delta === undefined) return;

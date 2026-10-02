@@ -149,6 +149,7 @@ export function thinkingLevelToResponsesReasoning(
   if (thinkingLevel === "medium") return { effort: "medium", summary: "auto" };
   if (thinkingLevel === "high") return { effort: "high", summary: "auto" };
   if (thinkingLevel === "xhigh") return { effort: "xhigh", summary: "auto" };
+  if (thinkingLevel === "max") return { effort: "max", summary: "auto" };
   return undefined;
 }
 
