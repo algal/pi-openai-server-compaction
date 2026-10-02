@@ -3,6 +3,10 @@
 This changelog intentionally starts at **0.1.0**.
 
 ## Unreleased
+- preserve injected context, summaries, and unanswered turns in remote history (upstream PR #18)
+- target Pi 1.0.0, including transcript-based prompts/tools and nullable provider headers
+- verify injected context and persisted usage after real compaction in the live harness
+- report compaction usage on returned results when Pi supports it
 - target Pi 0.80.9 and the `@earendil-works/*` package namespace
 - align compaction fallback, Responses payload normalization, Codex identity headers, and WebSocket behavior with Pi 0.80.9
 - replace the legacy `/responses/compact` call with Codex's current Responses compaction v2 protocol

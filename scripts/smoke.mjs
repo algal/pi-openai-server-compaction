@@ -96,11 +96,14 @@ assert.equal(typeof extensionFactory, "function", "extension entrypoint should e
 
 const {
   buildCodexWebSocketHeaders,
+  buildCompactionResultWithRemoteDetails,
   buildRemoteCompactionHeaders,
   buildRemoteCompactionDetails,
   buildRemoteCompactionRequestBody,
   buildRemoteCompactionV2History,
+  combineCompactionUsage,
   extractRemoteCompactionDetails,
+  messageToResponseItems,
   normalizeResponseItemsForPrompt,
   parseRemoteCompactionV2Events,
   processCompactedHistory,
@@ -109,7 +112,34 @@ const {
 } = await import(pathToFileURL(join(repoRoot, "src", "remote-compaction.ts")).href);
 const {
   selectInputItemsForContinuation,
+  buildResponseCreatePayload,
+  convertTools,
 } = await import(pathToFileURL(join(repoRoot, "src", "openai-ws-stream.ts")).href);
+const { normalizeContext, getCurrentTools } = await import("@earendil-works/pi-ai");
+const transcriptContext = normalizeContext({
+  systemPrompt: "SYSTEM_INSTRUCTIONS",
+  tools: [{ name: "read", description: "Read files", parameters: { type: "object", properties: {} } }],
+  messages: [{ role: "user", content: "Hello", timestamp: 0 }],
+});
+transcriptContext.messages.push({ role: "system", content: "UPDATED_INSTRUCTIONS" });
+const transcriptPayload = buildResponseCreatePayload({
+  model: { id: "gpt-5.4-nano", reasoning: false },
+  context: transcriptContext,
+  inputItems: [],
+  tools: convertTools(getCurrentTools(transcriptContext.messages)),
+  options: undefined,
+});
+assert.match(transcriptPayload.instructions, /SYSTEM_INSTRUCTIONS/);
+assert.match(transcriptPayload.instructions, /UPDATED_INSTRUCTIONS/);
+assert.equal(transcriptPayload.tools[0].name, "read");
+
+const deletedHeaders = buildRemoteCompactionHeaders({
+  model: { provider: "openai", api: "openai-responses" },
+  apiKey: "test-key",
+  headers: { Authorization: null, "X-Test": "present" },
+});
+assert.ok(!Object.keys(deletedHeaders).some((key) => key.toLowerCase() === "authorization"));
+assert.equal(deletedHeaders["X-Test"], "present");
 
 const targetModelKey = "openai:openai-responses:gpt-5.4-nano";
 const reconstructed = reconstructRemoteCompactionStateFromBranch({
@@ -198,6 +228,45 @@ assert.match(reconstructedJson, /KEEP_ME_TWO/);
 assert.match(reconstructedJson, /KEEP_REPLY_TWO/);
 assert.doesNotMatch(reconstructedJson, /DROP_ME/);
 assert.doesNotMatch(reconstructedJson, /DROP_REPLY/);
+
+// Pi context messages must survive replacement-history conversion.
+for (const [message, marker] of [
+  [{ role: "custom", customType: "note", content: "CUSTOM_NOTE_TEXT", display: false, timestamp: 0 }, /CUSTOM_NOTE_TEXT/],
+  [{ role: "bashExecution", command: "echo hi", output: "BASH_OUTPUT_TEXT", exitCode: 0, cancelled: false, truncated: false, timestamp: 0 }, /BASH_OUTPUT_TEXT/],
+  [{ role: "branchSummary", summary: "BRANCH_SUMMARY_TEXT", fromId: "x", timestamp: 0 }, /BRANCH_SUMMARY_TEXT/],
+  [{ role: "compactionSummary", summary: "COMPACTION_SUMMARY_TEXT", tokensBefore: 1, timestamp: 0 }, /COMPACTION_SUMMARY_TEXT/],
+]) {
+  const items = messageToResponseItems(message);
+  assert.ok(items.length > 0, `${message.role} message must not convert to zero response items`);
+  assert.equal(items[0].type, "message");
+  assert.equal(items[0].role, "user");
+  assert.match(JSON.stringify(items), marker);
+}
+assert.deepEqual(messageToResponseItems({
+  role: "bashExecution", command: "echo secret", output: "EXCLUDED_TEXT",
+  exitCode: 0, cancelled: false, truncated: false, excludeFromContext: true, timestamp: 0,
+}), []);
+
+const trailingState = reconstructRemoteCompactionStateFromBranch({
+  branchEntries: [
+    {
+      type: "compaction", id: "cmp-2",
+      details: { remoteCompaction: {
+        version: 2, provider: "openai-responses-compaction",
+        implementation: "responses_compaction_v2", modelKey: targetModelKey,
+        replacementHistory: [{ type: "compaction", encrypted_content: "ENCRYPTED" }],
+      } },
+    },
+    { type: "custom_message", id: "custom-1", customType: "supervision", content: "INJECTED_EXTENSION_NOTE", display: false },
+    { type: "branch_summary", id: "branch-1", fromId: "branch-0", summary: "PERSISTED_BRANCH_SUMMARY" },
+    { type: "message", id: "user-trailing", message: { role: "user", content: [{ type: "text", text: "UNANSWERED_USER_TURN" }] } },
+  ],
+});
+assert.ok(trailingState);
+const trailingJson = JSON.stringify(trailingState.explicitHistory);
+assert.match(trailingJson, /INJECTED_EXTENSION_NOTE/);
+assert.match(trailingJson, /PERSISTED_BRANCH_SUMMARY/);
+assert.match(trailingJson, /UNANSWERED_USER_TURN/);
 
 const requestBody = buildRemoteCompactionRequestBody({
   model: {
@@ -338,6 +407,94 @@ const detailsRoundTrip = extractRemoteCompactionDetails({
 assert.ok(detailsRoundTrip, "expected remote compaction details round trip");
 assert.equal(detailsRoundTrip.usage?.cacheWrite, 40);
 assert.equal(detailsRoundTrip.usage?.cost.total, 10);
+
+const localCompactionUsage = {
+  input: 1,
+  output: 2,
+  cacheRead: 3,
+  cacheWrite: 4,
+  cacheWrite1h: 1,
+  reasoning: 2,
+  totalTokens: 10,
+  cost: { input: 1, output: 2, cacheRead: 3, cacheWrite: 4, total: 10 },
+};
+const remoteCompactionUsage = {
+  input: 10,
+  output: 20,
+  cacheRead: 30,
+  cacheWrite: 40,
+  reasoning: 5,
+  totalTokens: 100,
+  cost: { input: 10, output: 20, cacheRead: 30, cacheWrite: 40, total: 100 },
+};
+const combinedCompactionUsage = {
+  input: 11,
+  output: 22,
+  cacheRead: 33,
+  cacheWrite: 44,
+  cacheWrite1h: 1,
+  reasoning: 7,
+  totalTokens: 110,
+  cost: { input: 11, output: 22, cacheRead: 33, cacheWrite: 44, total: 110 },
+};
+assert.deepEqual(combineCompactionUsage(localCompactionUsage, remoteCompactionUsage), combinedCompactionUsage);
+assert.deepEqual(combineCompactionUsage(localCompactionUsage, undefined), localCompactionUsage);
+assert.deepEqual(combineCompactionUsage(undefined, remoteCompactionUsage), remoteCompactionUsage);
+assert.equal(combineCompactionUsage(undefined, undefined), undefined);
+
+const remoteCompactionHistory = [{ type: "compaction", encrypted_content: "RESULT_ENCRYPTED" }];
+const remoteDetailsWithUsage = buildRemoteCompactionDetails(
+  {
+    provider: "openai",
+    api: "openai-responses",
+    id: "gpt-5.4-nano",
+  },
+  remoteCompactionHistory,
+  remoteCompactionUsage,
+);
+const remoteDetailsWithoutUsage = buildRemoteCompactionDetails(
+  {
+    provider: "openai",
+    api: "openai-responses",
+    id: "gpt-5.4-nano",
+  },
+  remoteCompactionHistory,
+);
+const localCompactionSummary = {
+  summary: "local summary",
+  firstKeptEntryId: "entry-1",
+  tokensBefore: 123,
+};
+
+const bothUsageCompaction = buildCompactionResultWithRemoteDetails({
+  localSummary: { ...localCompactionSummary, usage: localCompactionUsage },
+  remoteDetails: remoteDetailsWithUsage,
+  remoteUsage: remoteCompactionUsage,
+});
+assert.deepEqual(bothUsageCompaction.usage, combinedCompactionUsage);
+assert.deepEqual(bothUsageCompaction.details.remoteCompaction, remoteDetailsWithUsage);
+
+const localOnlyCompaction = buildCompactionResultWithRemoteDetails({
+  localSummary: { ...localCompactionSummary, usage: localCompactionUsage },
+  remoteDetails: remoteDetailsWithoutUsage,
+});
+assert.deepEqual(localOnlyCompaction.usage, localCompactionUsage);
+assert.deepEqual(localOnlyCompaction.details.remoteCompaction, remoteDetailsWithoutUsage);
+
+const remoteOnlyCompaction = buildCompactionResultWithRemoteDetails({
+  localSummary: localCompactionSummary,
+  remoteDetails: remoteDetailsWithUsage,
+  remoteUsage: remoteCompactionUsage,
+});
+assert.deepEqual(remoteOnlyCompaction.usage, remoteCompactionUsage);
+assert.deepEqual(remoteOnlyCompaction.details.remoteCompaction, remoteDetailsWithUsage);
+
+const neitherUsageCompaction = buildCompactionResultWithRemoteDetails({
+  localSummary: localCompactionSummary,
+  remoteDetails: remoteDetailsWithoutUsage,
+});
+assert.equal(Object.hasOwn(neitherUsageCompaction, "usage"), false);
+assert.deepEqual(neitherUsageCompaction.details.remoteCompaction, remoteDetailsWithoutUsage);
 
 const incrementalInput = selectInputItemsForContinuation({
   context: {

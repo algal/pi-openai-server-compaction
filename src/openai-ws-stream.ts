@@ -12,7 +12,10 @@ import {
   type AssistantMessage,
   type AssistantMessageEvent,
   type AssistantMessageEventStream,
-  type Context,
+  type TranscriptContext as Context,
+  type JsonObject,
+  getCurrentSystemPrompt,
+  getCurrentTools,
   type Message,
   type Model,
   type SimpleStreamOptions,
@@ -372,7 +375,7 @@ function parseThinkingSignature(value: unknown): Extract<InputItem, { type: "rea
   }
 }
 
-function convertTools(tools: Context["tools"]): FunctionToolDefinition[] {
+export function convertTools(tools: ReturnType<typeof getCurrentTools>): FunctionToolDefinition[] {
   if (!tools || tools.length === 0) return [];
   return tools.map((tool) => ({
     type: "function",
@@ -531,7 +534,7 @@ function buildAssistantMessageFromResponse(
         name: toolName,
         arguments: (() => {
           try {
-            return JSON.parse(item.arguments) as Record<string, unknown>;
+            return JSON.parse(item.arguments) as JsonObject;
           } catch {
             return {};
           }
@@ -587,7 +590,7 @@ function buildWsRequestKey(params: {
 }): string {
   return JSON.stringify({
     model: params.model.id,
-    instructions: params.context.systemPrompt ?? undefined,
+    instructions: getCurrentSystemPrompt(params.context.messages) || undefined,
     tools: params.tools.length > 0 ? params.tools : undefined,
     temperature: params.options?.temperature,
     max_output_tokens: params.options?.maxTokens,
@@ -627,7 +630,7 @@ export function selectInputItemsForContinuation(params: {
   return buildFullInput(context, model);
 }
 
-function buildResponseCreatePayload(params: {
+export function buildResponseCreatePayload(params: {
   model: Model<any>;
   context: Context;
   inputItems: Array<InputItem | Record<string, unknown>>;
@@ -641,7 +644,7 @@ function buildResponseCreatePayload(params: {
     model: params.model.id,
     store: false,
     input: params.inputItems,
-    instructions: params.context.systemPrompt ?? undefined,
+    instructions: getCurrentSystemPrompt(params.context.messages) || undefined,
     tools: params.tools.length > 0 ? params.tools : undefined,
     ...(params.previousResponseId ? { previous_response_id: params.previousResponseId } : {}),
     ...(params.options?.temperature !== undefined ? { temperature: params.options.temperature } : {}),
@@ -847,8 +850,8 @@ export function createOpenAIWebSocketStreamFn(
             await runWarmUp({
               manager: session.manager,
               modelId: model.id,
-              tools: convertTools(context.tools),
-              instructions: context.systemPrompt ?? undefined,
+              tools: convertTools(getCurrentTools(context.messages)),
+              instructions: getCurrentSystemPrompt(context.messages) || undefined,
               signal,
             });
           } catch {
@@ -859,7 +862,7 @@ export function createOpenAIWebSocketStreamFn(
         const remoteCompactionState = getRemoteCompactionState(sessionId);
         const continuationState = getContinuationState(sessionId);
         const typedOptions = options as WsOptions | undefined;
-        const functionTools = convertTools(context.tools);
+        const functionTools = convertTools(getCurrentTools(context.messages));
         const requestKey = buildWsRequestKey({
           model,
           context,

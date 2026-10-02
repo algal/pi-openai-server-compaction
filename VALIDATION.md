@@ -2,10 +2,16 @@
 
 ## Current Responses compaction v2 validation
 
-The full live Pi RPC suite passes with both:
+On 2026-10-02, typecheck, offline smoke tests, and the full live Pi RPC suite
+passed on Pi 1.0.0 with both:
 
-- `openai/gpt-5.6-luna` through the direct OpenAI Responses API
-- `openai-codex/gpt-5.6-sol` through the ChatGPT Codex subscription backend
+- `openai/gpt-5.4-nano` through the direct OpenAI Responses API
+- `openai-codex/gpt-5.6-luna` through the ChatGPT Codex subscription backend
+
+The live tests also verify that an extension-injected custom message reaches the
+model after remote compaction and that compaction usage is persisted. Offline
+regressions cover custom/bash/summary conversion, excluded bash output,
+unanswered trailing turns, transcript prompts/tools, and nullable headers.
 
 The validated compaction request uses the normal Responses endpoint with a trailing `{ "type": "compaction_trigger" }`. Both backends returned an opaque `compaction` output item, persisted as `details.remoteCompaction` with `implementation: "responses_compaction_v2"`.
 

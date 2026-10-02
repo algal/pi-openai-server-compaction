@@ -20,6 +20,7 @@ import { dirname, join } from "node:path";
 import { createInterface } from "node:readline";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
+import { notePrompt, noteToken } from "./context-note.ts";
 
 type JsonObject = Record<string, unknown>;
 type RpcResponse = JsonObject & {
@@ -126,7 +127,7 @@ function chooseAltModel(
   );
 
   if (sameFamily.length > 0) {
-    for (const wanted of ["gpt-5.4-mini", "gpt-4.1-mini", "gpt-5-mini", "gpt-5.4-nano", "gpt-5.1"]) {
+    for (const wanted of ["gpt-5.4-mini", "gpt-4.1-mini", "gpt-5-mini", "gpt-5.4-nano", "gpt-5.1", "gpt-5.6-luna", "gpt-5.6-sol"]) {
       const match = sameFamily.find((model) => model.id === wanted && model.id !== currentId);
       if (match) return match;
     }
@@ -181,7 +182,13 @@ class PiRpcClient {
       "--no-extensions",
       "-e",
       extensionPath,
+      "-e",
+      join(repoRoot, "tests", "live", "context-note.ts"),
       "--no-tools",
+      "--no-context-files",
+      "--no-skills",
+      "--no-prompt-templates",
+      "--approve",
     ];
     if (sessionFile) {
       args.push("--session", sessionFile);
@@ -424,6 +431,13 @@ async function runSameProcessTest(sessionDir: string, workspaceDir: string): Pro
     await client.waitIdle();
     const answer = assistantText(await client.getMessages());
     expect(answer.includes(secret), `Expected secret recovery after compaction; got: ${answer}`);
+
+    await client.send({ type: "prompt", message: notePrompt });
+    await client.waitIdle();
+    const noteAnswer = assistantText(await client.getMessages());
+    expect(noteAnswer.trim() === noteToken, `Injected context was lost after compaction: ${noteAnswer}`);
+    const persistedUsage = nestedRecord(lastCompaction.usage);
+    expect(asNumber(persistedUsage.totalTokens, "compaction.usage.totalTokens") > 0, "Missing compaction usage");
 
     await client.send({
       type: "set_model",

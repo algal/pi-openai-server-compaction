@@ -25,6 +25,7 @@ import {
 import { releaseAllWsSessions, releaseWsSession } from "./openai-ws-stream.ts";
 import {
   buildCompactionSummaryText,
+  buildCompactionResultWithRemoteDetails,
   buildRemoteCompactionDetails,
   buildToolsPayload,
   callRemoteCompactionEndpoint,
@@ -32,6 +33,7 @@ import {
   messageToResponseItems,
   messagesToResponseItems,
   normalizeResponseItemsForPrompt,
+  branchEntryToContextMessage,
   reconstructRemoteCompactionStateFromBranch,
 } from "./remote-compaction.ts";
 import {
@@ -69,9 +71,12 @@ function getSessionId(ctx: SessionContextLike): string {
 }
 
 function getBranchMessages(branchEntries: BranchEntry[]): AgentMessage[] {
-  return branchEntries.flatMap((entry) =>
-    entry.type === "message" && entry.message ? [entry.message as AgentMessage] : [],
-  );
+  // Extension messages are `custom_message` entries, not `message` entries; reading only
+  // the latter would leave injected context out of the compaction input entirely.
+  return branchEntries.flatMap((entry) => {
+    const message = branchEntryToContextMessage(entry);
+    return message ? [message] : [];
+  });
 }
 
 function getBranchMessageCount(branchEntries: BranchEntry[]): number {
@@ -277,17 +282,13 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
             tokensBefore: event.preparation.tokensBefore,
           };
 
-    return {
-      compaction: {
-        summary: localSummary.summary,
-        firstKeptEntryId: localSummary.firstKeptEntryId,
-        tokensBefore: localSummary.tokensBefore,
-        details: {
-          ...(localSummary.details !== undefined ? { localSummaryDetails: localSummary.details } : {}),
-          remoteCompaction: remoteDetails,
-        },
-      },
-    };
+    const compaction = buildCompactionResultWithRemoteDetails({
+      localSummary,
+      remoteDetails,
+      remoteUsage: remoteResult.value.usage,
+    });
+
+    return { compaction };
   });
 
   pi.on("message_end", (event, ctx) => {

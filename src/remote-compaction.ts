@@ -19,7 +19,8 @@ import {
   serializeConversation,
   type CompactionResult,
 } from "@earendil-works/pi-coding-agent";
-import { calculateCost, type Model, type Usage } from "@earendil-works/pi-ai";
+import { calculateCost, type Model, type ProviderHeaders, type Usage } from "@earendil-works/pi-ai";
+import { providerHeadersToRecord } from "@earendil-works/pi-ai/utils/headers";
 import { complete } from "@earendil-works/pi-ai/compat";
 import { isRecord } from "./config.ts";
 import {
@@ -104,6 +105,66 @@ export type RemoteCompactionResult = {
   output: ResponseItem[];
   usage?: RemoteCompactionUsageSnapshot;
 };
+
+// Pi 0.80.9's CompactionResult type does not include usage. Use this
+// intersection for result objects so adding usage stays excess-property
+// compatible while newer Pi cores can read it.
+export type CompactionResultWithUsage = CompactionResult & {
+  usage?: Usage;
+};
+
+export function combineCompactionUsage(...usages: Array<Usage | undefined>): Usage | undefined {
+  let seen = false;
+  const combined: Usage = {
+    input: 0,
+    output: 0,
+    cacheRead: 0,
+    cacheWrite: 0,
+    totalTokens: 0,
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+  };
+
+  for (const usage of usages) {
+    if (!usage) continue;
+    seen = true;
+    combined.input += usage.input;
+    combined.output += usage.output;
+    combined.cacheRead += usage.cacheRead;
+    combined.cacheWrite += usage.cacheWrite;
+    combined.totalTokens += usage.totalTokens;
+    combined.cost.input += usage.cost.input;
+    combined.cost.output += usage.cost.output;
+    combined.cost.cacheRead += usage.cost.cacheRead;
+    combined.cost.cacheWrite += usage.cost.cacheWrite;
+    combined.cost.total += usage.cost.total;
+    if (usage.cacheWrite1h !== undefined) {
+      combined.cacheWrite1h = (combined.cacheWrite1h ?? 0) + usage.cacheWrite1h;
+    }
+    if (usage.reasoning !== undefined) {
+      combined.reasoning = (combined.reasoning ?? 0) + usage.reasoning;
+    }
+  }
+
+  return seen ? combined : undefined;
+}
+
+export function buildCompactionResultWithRemoteDetails(params: {
+  localSummary: CompactionResultWithUsage;
+  remoteDetails: RemoteCompactionDetails;
+  remoteUsage?: Usage;
+}): CompactionResultWithUsage {
+  const usage = combineCompactionUsage(params.localSummary.usage, params.remoteUsage);
+  return {
+    summary: params.localSummary.summary,
+    firstKeptEntryId: params.localSummary.firstKeptEntryId,
+    tokensBefore: params.localSummary.tokensBefore,
+    details: {
+      ...(params.localSummary.details !== undefined ? { localSummaryDetails: params.localSummary.details } : {}),
+      remoteCompaction: params.remoteDetails,
+    },
+    ...(usage ? { usage } : {}),
+  };
+}
 
 function normalizeBaseUrl(baseUrl: string | undefined, fallback: string): string {
   const trimmed = baseUrl?.trim();
@@ -217,17 +278,15 @@ function withRemoteCompactionV2Feature(headers: Record<string, string>): Record<
 export function buildRemoteCompactionHeaders(params: {
   model: Model<any>;
   apiKey: string;
-  headers?: Record<string, string>;
+  headers?: ProviderHeaders;
   sessionId?: string;
 }): Record<string, string> {
   const codexIdentityHeaders = buildCodexIdentityHeaders(params.sessionId);
-  const commonHeaders = withRemoteCompactionV2Feature({
-    authorization: `Bearer ${params.apiKey}`,
-    ...codexIdentityHeaders,
-    ...(params.headers ?? {}),
-    accept: "text/event-stream",
-    "content-type": "application/json",
-  });
+  const commonHeaders = withRemoteCompactionV2Feature(providerHeadersToRecord(
+    { authorization: `Bearer ${params.apiKey}`, ...codexIdentityHeaders },
+    params.headers,
+    { accept: "text/event-stream", "content-type": "application/json" },
+  ) ?? {});
   if (isDirectOpenAIResponsesModel(params.model)) {
     return commonHeaders;
   }
@@ -355,6 +414,25 @@ function buildPortableSummaryPrompt(conversation: string, customInstructions?: s
   return `Summarize this conversation for future continuation in pi. Preserve goals, decisions, important facts, file paths, open questions, and next steps. Be concise but include information needed to continue work.${instructionSuffix}\n\n<conversation>\n${conversation}\n</conversation>`;
 }
 
+/**
+ * Pi carries four message kinds that are not LLM roles - `custom` (context injected by
+ * extensions via `pi.sendMessage`), `bashExecution`, `branchSummary` and
+ * `compactionSummary` - and flattens each one into a user-role context message before it
+ * reaches the provider (`convertToLlm` in `@earendil-works/pi-coding-agent`).
+ *
+ * The replacement history built from these items *replaces* Pi's own request input once a
+ * remote compaction exists, so a message that is not converted here is not merely missing
+ * from a cache: it is dropped from the request Pi intended to send. Mirror Pi's flattening
+ * so the replacement history keeps everything Pi would have sent.
+ */
+function nonLlmMessageToUserContent(message: AgentMessage): ResponseContentItem[] {
+  // Delegate to Pi's own flattening rather than re-deriving it, so this cannot drift from
+  // what Pi actually sends when Pi adds or changes a message kind.
+  const [flattened] = convertToLlm([message]);
+  if (!flattened || flattened.role !== "user") return [];
+  return contentToResponseContentItems(flattened.content);
+}
+
 export function messageToResponseItems(message: AgentMessage): ResponseItem[] {
   const items: ResponseItem[] = [];
 
@@ -417,6 +495,12 @@ export function messageToResponseItems(message: AgentMessage): ResponseItem[] {
       call_id: message.toolCallId.split("|", 1)[0],
       output: toolResultContentToOutput(message.content),
     });
+    return items;
+  }
+
+  const flattened = nonLlmMessageToUserContent(message);
+  if (flattened.length > 0) {
+    items.push({ type: "message", role: "user", content: flattened });
   }
 
   return items;
@@ -681,12 +765,12 @@ export async function generatePortableSummary(params: {
   messages: AgentMessage[];
   model: Model<any>;
   apiKey: string;
-  headers?: Record<string, string>;
+  headers?: ProviderHeaders;
   customInstructions?: string;
   signal?: AbortSignal;
   firstKeptEntryId: string;
   tokensBefore: number;
-}): Promise<CompactionResult> {
+}): Promise<CompactionResultWithUsage> {
   const conversation = serializeConversation(convertToLlm(params.messages));
   const response = await complete(
     params.model,
@@ -717,6 +801,7 @@ export async function generatePortableSummary(params: {
     summary: summary || buildCompactionSummaryText(params.model),
     firstKeptEntryId: params.firstKeptEntryId,
     tokensBefore: params.tokensBefore,
+    ...(response.usage ? { usage: response.usage } : {}),
   };
 }
 
@@ -725,13 +810,13 @@ export async function generateBestEffortLocalSummary(params: {
   messages: AgentMessage[];
   model: Model<any>;
   apiKey: string;
-  headers?: Record<string, string>;
+  headers?: ProviderHeaders;
   customInstructions?: string;
   signal?: AbortSignal;
   thinkingLevel?: ThinkingLevel;
   firstKeptEntryId: string;
   tokensBefore: number;
-}): Promise<CompactionResult> {
+}): Promise<CompactionResultWithUsage> {
   try {
     return await generatePortableSummary(params);
   } catch {
@@ -739,7 +824,7 @@ export async function generateBestEffortLocalSummary(params: {
       params.preparation,
       params.model,
       params.apiKey,
-      params.headers,
+      providerHeadersToRecord(params.headers),
       params.customInstructions,
       params.signal,
       params.thinkingLevel,
@@ -919,7 +1004,7 @@ export function parseRemoteCompactionV2Events(events: unknown[]): RemoteCompacti
 export async function callRemoteCompactionEndpoint(params: {
   model: Model<any>;
   apiKey: string;
-  headers?: Record<string, string>;
+  headers?: ProviderHeaders;
   sessionId?: string;
   input: ResponseItem[];
   instructions?: string;
@@ -1023,8 +1108,44 @@ function assistantMessageMatchesModelKey(
 ): boolean {
   const target = parseModelKeyParts(targetModelKey);
   if (!target) return false;
-  if (!isRecord(message)) return false;
+  if (message.role !== "assistant") return false;
   return message.provider === target.provider && message.model === target.id;
+}
+
+/**
+ * Mirror of Pi's session entry conversion for the
+ * entry kinds that carry LLM context. Extension messages are stored as `custom_message`
+ * entries rather than `message` entries, so a branch walk that only looks at
+ * `entry.type === "message"` silently loses them.
+ */
+export function branchEntryToContextMessage(entry: {
+  type: string;
+  message?: unknown;
+  [key: string]: unknown;
+}): AgentMessage | undefined {
+  if (entry.type === "message") return entry.message as AgentMessage | undefined;
+
+  if (entry.type === "custom_message") {
+    return {
+      role: "custom",
+      customType: String(entry.customType ?? ""),
+      content: entry.content,
+      display: entry.display !== false,
+      details: entry.details,
+      timestamp: Date.now(),
+    } as unknown as AgentMessage;
+  }
+
+  if (entry.type === "branch_summary" && typeof entry.summary === "string" && entry.summary) {
+    return {
+      role: "branchSummary",
+      summary: entry.summary,
+      fromId: String(entry.fromId ?? ""),
+      timestamp: Date.now(),
+    } as unknown as AgentMessage;
+  }
+
+  return undefined;
 }
 
 export function reconstructRemoteCompactionStateFromBranch(params: {
@@ -1047,13 +1168,14 @@ export function reconstructRemoteCompactionStateFromBranch(params: {
   let pendingTurnItems: ResponseItem[] = [];
 
   for (const entry of params.branchEntries.slice(latestCompactionIndex + 1)) {
-    if (entry.type !== "message" || !entry.message) continue;
+    const message = branchEntryToContextMessage(entry);
+    if (!message) continue;
 
-    const items = messageToResponseItems(entry.message);
+    const items = messageToResponseItems(message);
     if (items.length === 0) continue;
 
-    if (entry.message.role === "assistant") {
-      if (assistantMessageMatchesModelKey(entry.message, latestDetails.modelKey)) {
+    if (message.role === "assistant") {
+      if (assistantMessageMatchesModelKey(message, latestDetails.modelKey)) {
         trailingMessages.push(...pendingTurnItems, ...items);
       }
       pendingTurnItems = [];
@@ -1062,6 +1184,11 @@ export function reconstructRemoteCompactionStateFromBranch(params: {
 
     pendingTurnItems.push(...items);
   }
+
+  // A turn that has not been answered yet - the common shape when a session is resumed or
+  // a branch is opened while the newest entry is still a user or extension message - must
+  // still reach the provider. Without this flush those items are buffered and discarded.
+  trailingMessages.push(...pendingTurnItems);
 
   return {
     compactionEntryId: latestCompactionEntryId,
