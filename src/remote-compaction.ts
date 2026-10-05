@@ -1,8 +1,8 @@
 /**
- * Codex-style remote compaction helpers.
+ * OpenAI, Codex, and Azure remote compaction helpers.
  *
  * Converts Pi messages into OpenAI Responses items, requests remote compaction
- * through the Responses API's `compaction_trigger`, stores the returned opaque
+ * through the Responses API's `compaction_trigger` or Azure's `/responses/compact`, stores the returned opaque
  * replacement history, and reconstructs replayable state from persisted Pi
  * session entries.
  */
@@ -24,6 +24,7 @@ import { complete } from "@earendil-works/pi-ai/compat";
 import { isRecord } from "./config.ts";
 import {
   hostnameFromBaseUrl,
+  isAzureOpenAIResponsesModel,
   isDirectOpenAIResponsesModel,
   isOpenAICodexResponsesModel,
   supportsRemoteCompactionModel,
@@ -134,6 +135,24 @@ export function remoteCompactionV2EndpointUrl(model: Model<any>): string {
   throw new Error("Remote compaction v2 is not supported for this model.");
 }
 
+export function azureCompactionEndpointUrl(model: Model<any>): string {
+  if (!isAzureOpenAIResponsesModel(model) || !model.baseUrl) {
+    throw new Error("Azure compaction requires an explicit Azure OpenAI v1 endpoint.");
+  }
+  const url = new URL(model.baseUrl);
+  let path = url.pathname.replace(/\/+$/, "");
+  if (!path || path === "/openai") path = "/openai/v1";
+  if (path === "/openai/v1/responses/compact") {
+    url.pathname = path;
+    return url.href;
+  }
+  if (path === "/openai/v1/responses") path += "/compact";
+  else if (path === "/openai/v1") path += "/responses/compact";
+  else throw new Error("Azure compaction requires an Azure OpenAI /openai/v1 endpoint.");
+  url.pathname = path;
+  return url.href;
+}
+
 function resolveCodexHome(): string {
   const configured = process.env.CODEX_HOME?.trim();
   return configured ? configured : join(homedir(), ".codex");
@@ -220,6 +239,15 @@ export function buildRemoteCompactionHeaders(params: {
   headers?: Record<string, string>;
   sessionId?: string;
 }): Record<string, string> {
+  if (isAzureOpenAIResponsesModel(params.model)) {
+    const headers = new Headers(params.headers);
+    if (!headers.has("api-key") && !headers.has("authorization")) {
+      headers.set("api-key", params.apiKey);
+    }
+    headers.set("accept", "application/json");
+    headers.set("content-type", "application/json");
+    return Object.fromEntries(headers.entries());
+  }
   const codexIdentityHeaders = buildCodexIdentityHeaders(params.sessionId);
   const commonHeaders = withRemoteCompactionV2Feature({
     authorization: `Bearer ${params.apiKey}`,
@@ -836,6 +864,13 @@ export function buildRemoteCompactionRequestBody(params: {
   text?: ResponsesTextConfig;
   sessionId?: string;
 }): Record<string, unknown> {
+  if (isAzureOpenAIResponsesModel(params.model)) {
+    return {
+      model: params.model.id,
+      input: params.input,
+      ...(params.instructions ? { instructions: params.instructions } : {}),
+    };
+  }
   return {
     model: params.model.id,
     input: [...params.input, { type: "compaction_trigger" }],
@@ -929,11 +964,13 @@ export async function callRemoteCompactionEndpoint(params: {
   text?: ResponsesTextConfig;
   signal?: AbortSignal;
 }): Promise<RemoteCompactionResult> {
-  if (!supportsRemoteCompactionModel(params.model)) {
-    throw new Error("Remote compaction v2 is currently only enabled for supported OpenAI-compatible Responses models.");
+  if (!supportsRemoteCompactionModel(params.model, { includeAzure: true })) {
+    throw new Error("Remote compaction is only enabled for supported OpenAI-compatible Responses models.");
   }
 
-  const response = await fetch(remoteCompactionV2EndpointUrl(params.model), {
+  const azure = isAzureOpenAIResponsesModel(params.model);
+  const endpoint = azure ? azureCompactionEndpointUrl(params.model) : remoteCompactionV2EndpointUrl(params.model);
+  const response = await fetch(endpoint, {
     method: "POST",
     headers: buildRemoteCompactionHeaders({
       model: params.model,
@@ -956,7 +993,20 @@ export async function callRemoteCompactionEndpoint(params: {
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
-    throw new Error(`OpenAI remote compaction v2 failed (${response.status}): ${text || response.statusText}`);
+    throw new Error(`OpenAI remote compaction failed (${response.status}): ${text || response.statusText}`);
+  }
+
+  if (azure) {
+    const result: unknown = await response.json();
+    if (!isRecord(result) || !Array.isArray(result.output) || !result.output.every(isResponseItem) ||
+      !result.output.some((item) => item.type === "compaction" &&
+        typeof item.encrypted_content === "string" && item.encrypted_content.length > 0)) {
+      throw new Error("Azure remote compaction did not return a compacted output window.");
+    }
+    return {
+      output: result.output,
+      usage: extractRemoteCompactionUsage(params.model, result.usage),
+    };
   }
 
   const responseText = await response.text();
@@ -972,10 +1022,11 @@ export function buildRemoteCompactionDetails(
   replacementHistory: ResponseItem[],
   usage?: RemoteCompactionUsageSnapshot,
 ): RemoteCompactionDetails {
+  const azure = isAzureOpenAIResponsesModel(model);
   return {
-    version: 2,
-    provider: "openai-responses-compaction",
-    implementation: "responses_compaction_v2",
+    version: azure ? 1 : 2,
+    provider: azure ? "openai-responses-compact" : "openai-responses-compaction",
+    implementation: azure ? "responses_compact_v1" : "responses_compaction_v2",
     modelKey: modelKey(model),
     replacementHistory,
     ...(usage ? { usage } : {}),

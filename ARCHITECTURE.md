@@ -72,7 +72,12 @@ Persisted state lives in the session JSONL file and survives reloads:
 - Pi `compaction` entries
 - `compaction.details.remoteCompaction`
 
-The persisted `remoteCompaction` payload is the important bridge to Codex-style behavior. Version 2 contains retained user messages plus the opaque `compaction` item returned by Responses compaction v2. Version 1 entries from the legacy `/responses/compact` implementation remain readable for session compatibility.
+The persisted `remoteCompaction` payload is the important bridge to Codex-style behavior. Version 2 contains retained user messages plus the opaque `compaction` item returned by Responses compaction v2. Azure's opt-in v1 path calls `/openai/v1/responses/compact` and stores the complete returned output window as version 1. Older version 1 entries remain readable for session compatibility.
+
+Azure OpenAI and Foundry retain Pi's HTTP transport. Later requests replay the
+saved window and post-compaction messages without `previous_response_id`.
+Current system/developer input items are retained alongside the window, so Pi's
+transcript-based system instructions still reach the provider.
 
 ### Runtime-only state
 

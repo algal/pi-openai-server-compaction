@@ -66,7 +66,9 @@ export function isAzureOpenAIResponsesModel(model: ModelLike): boolean {
   const provider = typeof model.provider === "string" ? model.provider : "";
   if (provider === "azure-openai" || provider === "azure-openai-responses") return true;
   const host = hostnameFromBaseUrl(model.baseUrl);
-  return typeof host === "string" && host.endsWith(".openai.azure.com");
+  return typeof host === "string" && (
+    host.endsWith(".openai.azure.com") || host.endsWith(".services.ai.azure.com")
+  );
 }
 
 export function isOpenAICodexResponsesModel(model: ModelLike): boolean {
@@ -86,9 +88,13 @@ export function supportsPreviousResponseId(
   return cfg.includeAzure && isAzureOpenAIResponsesModel(model);
 }
 
-export function supportsRemoteCompactionModel(model: unknown): model is ModelLike {
+export function supportsRemoteCompactionModel(
+  model: unknown,
+  cfg?: Pick<ExtensionConfig, "includeAzure">,
+): model is ModelLike {
   if (!isOpenAIResponsesModel(model)) return false;
-  return isDirectOpenAIResponsesModel(model) || isOpenAICodexResponsesModel(model);
+  return isDirectOpenAIResponsesModel(model) || isOpenAICodexResponsesModel(model) ||
+    (cfg?.includeAzure === true && isAzureOpenAIResponsesModel(model));
 }
 
 export function resolveCompactThreshold(

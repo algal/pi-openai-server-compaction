@@ -370,4 +370,6 @@ assert.deepEqual(incrementalInput, [
   },
 ]);
 
+const { runAzureTests } = await import("./smoke-azure.ts");
+await runAzureTests();
 console.log("smoke ok");

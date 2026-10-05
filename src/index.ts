@@ -14,6 +14,7 @@ import {
   extractAssistantResponseId,
   extractResponsesReasoningConfig,
   extractResponsesTextConfig,
+  isAzureOpenAIResponsesModel,
   isOpenAICodexResponsesModel,
   looksLikeResponsesPayload,
   messageMatchesModel,
@@ -202,7 +203,7 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
   pi.on("session_before_compact", async (event, ctx) => {
     const cfg = loadConfig(ctx.cwd);
     const model = ctx.model;
-    if (!cfg.enabled || !model || !supportsRemoteCompactionModel(model)) return undefined;
+    if (!cfg.enabled || !model || !supportsRemoteCompactionModel(model, cfg)) return undefined;
 
     const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
     if (!auth.ok || !auth.apiKey) return undefined;
@@ -330,11 +331,19 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
     });
     const remoteState = getMatchingRemoteState(sessionId, model);
 
-    if (isOpenAICodexResponsesModel(model)) {
+    const azure = cfg.includeAzure && isAzureOpenAIResponsesModel(model);
+    if (isOpenAICodexResponsesModel(model) || azure) {
       if (!remoteState) return undefined;
+      const currentInstructions = azure && Array.isArray(event.payload.input)
+        ? event.payload.input.filter((item) => isRecord(item) &&
+          (item.role === "developer" || item.role === "system"))
+        : [];
       const payload = applyRemoteHistoryPayloadPatch({
         payload: event.payload,
-        explicitHistory: normalizeResponseItemsForPrompt(remoteState.explicitHistory, model) as unknown[],
+        explicitHistory: [
+          ...currentInstructions,
+          ...normalizeResponseItemsForPrompt(remoteState.explicitHistory, model),
+        ],
       });
       maybeNotifyRequestFeatures({
         notifiedModels,
