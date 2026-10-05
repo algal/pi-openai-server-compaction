@@ -48,7 +48,7 @@ https://x.com/alexisgallagher/status/2042396986327060736?s=20 .)
 |-----------------------|-----------------------------|-----------------------------------|----------------------------------|-------------|
 | `openai/*`            | Yes                         | Yes                               | Yes                              | Yes         |
 | `openai-codex/*`      | Yes                         | No (built-in transport retained)  | No (built-in transport retained) | Yes         |
-| Azure                 | Partial (opt-in via config) | Partial                           | No                               | No          |
+| Azure OpenAI / Foundry v1 | Yes (`/responses/compact`, opt-in) | No (explicit history replay) | No | No |
 
 ## Install
 
@@ -94,13 +94,28 @@ For direct `openai/*` models between compactions, the extension also:
 
 For `openai-codex/*` models, the extension preserves the built-in Codex transport and only injects reconstructed remote compaction history after compaction boundaries.
 
+For Azure OpenAI and Microsoft Foundry, enable `includeAzure` or set
+`PI_OPENAI_SERVER_COMPACTION_AZURE=1`. Both `.openai.azure.com` and
+`.services.ai.azure.com` endpoints are recognized, including when the built-in
+`openai` provider is configured with an Azure base URL. Configure a working
+`/openai/v1` base URL and authentication in Pi first.
+
+Azure uses Microsoft's documented
+[`POST /openai/v1/responses/compact`](https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/responses#compact-a-response)
+with `model`, `input`, and optional `instructions`. It preserves configured
+`api-key` or bearer headers, defaults to API-key authentication, and replays the
+returned output window on later turns. This path retains Pi's HTTP transport
+and does not inject `previous_response_id`, `context_management`, or Codex beta
+headers. Azure artifacts use `details.remoteCompaction.implementation =
+"responses_compact_v1"`; OpenAI and Codex retain their existing v2 protocol.
+
 ## How compaction works
 
 On Pi compaction events for supported models, the extension:
 
 1. Generates a **portable Pi text summary** (full-branch summary with fallback to Pi's built-in compaction helper)
-2. Calls `POST /v1/responses` with the conversation history, a trailing `compaction_trigger`, system prompt, tools, reasoning config, and text config
-3. Retains recent user messages and stores them with the returned opaque `compaction` item in `CompactionEntry.details.remoteCompaction`
+2. Calls `POST /v1/responses` with the conversation history, a trailing `compaction_trigger`, system prompt, tools, reasoning config, and text config, or Azure's `POST /openai/v1/responses/compact` with the conversation history and system prompt
+3. Stores the replacement history in `CompactionEntry.details.remoteCompaction`: recent user messages plus the opaque `compaction` item for v2, or Azure's complete returned output window
 4. Persists remote compaction usage metadata when the backend returns it
 
 The compaction request mirrors the shape of surrounding normal requests (reasoning effort, text settings, tool definitions) rather than using endpoint defaults.

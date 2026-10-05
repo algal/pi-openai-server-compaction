@@ -80,6 +80,24 @@ Current automated coverage includes:
 Recommended follow-up live regression:
 - explicit tree navigation after an intervening other-model turn, followed by restart
 
+## Azure OpenAI / Microsoft Foundry
+
+1. Configure a working Azure `/openai/v1` base URL in Pi and set
+   `PI_OPENAI_SERVER_COMPACTION_AZURE=1`.
+2. In a new session, ask Pi to remember a test fact, run `/compact`, and ask for
+   the fact again.
+3. Check the session JSONL: `details.remoteCompaction.implementation` must be
+   `responses_compact_v1`, and replacement history must contain an opaque
+   `compaction` item from `/responses/compact`.
+4. Resume the session in a fresh Pi process and repeat the question.
+5. Confirm requests retain the current system instructions and new user prompt,
+   and do not combine explicit history with `previous_response_id`.
+
+The offline smoke suite covers Azure endpoint detection and normalization,
+API-key/bearer headers, compact request/response handling, usage, saved-window
+replay, opt-out, HTTP errors, invalid output, and cancellation. Live Azure
+validation is separate from the existing direct OpenAI/Codex RPC suite.
+
 ## Controlled compaction benchmark
 
 The native-vs-text benchmark, reproduction instructions, retained evidence, and report live under:
