@@ -24,6 +24,7 @@ import {
 } from "@earendil-works/pi-ai";
 import { streamSimpleOpenAIResponses } from "@earendil-works/pi-ai/compat";
 import { loadConfig } from "./config.ts";
+import { resolveSystemPrompt, resolveTools } from "./transcript-context.ts";
 import {
   isDirectOpenAIResponsesModel,
   modelKey,
@@ -372,7 +373,7 @@ function parseThinkingSignature(value: unknown): Extract<InputItem, { type: "rea
   }
 }
 
-function convertTools(tools: Context["tools"]): FunctionToolDefinition[] {
+export function convertTools(tools: Context["tools"]): FunctionToolDefinition[] {
   if (!tools || tools.length === 0) return [];
   return tools.map((tool) => ({
     type: "function",
@@ -579,7 +580,7 @@ function resolveWsWarmup(options: SimpleStreamOptions | undefined): boolean {
   return warmup === true;
 }
 
-function buildWsRequestKey(params: {
+export function buildWsRequestKey(params: {
   model: Model<any>;
   context: Context;
   tools: FunctionToolDefinition[];
@@ -587,7 +588,7 @@ function buildWsRequestKey(params: {
 }): string {
   return JSON.stringify({
     model: params.model.id,
-    instructions: params.context.systemPrompt ?? undefined,
+    instructions: resolveSystemPrompt(params.context),
     tools: params.tools.length > 0 ? params.tools : undefined,
     temperature: params.options?.temperature,
     max_output_tokens: params.options?.maxTokens,
@@ -627,7 +628,7 @@ export function selectInputItemsForContinuation(params: {
   return buildFullInput(context, model);
 }
 
-function buildResponseCreatePayload(params: {
+export function buildResponseCreatePayload(params: {
   model: Model<any>;
   context: Context;
   inputItems: Array<InputItem | Record<string, unknown>>;
@@ -641,7 +642,7 @@ function buildResponseCreatePayload(params: {
     model: params.model.id,
     store: false,
     input: params.inputItems,
-    instructions: params.context.systemPrompt ?? undefined,
+    instructions: resolveSystemPrompt(params.context),
     tools: params.tools.length > 0 ? params.tools : undefined,
     ...(params.previousResponseId ? { previous_response_id: params.previousResponseId } : {}),
     ...(params.options?.temperature !== undefined ? { temperature: params.options.temperature } : {}),
@@ -847,8 +848,8 @@ export function createOpenAIWebSocketStreamFn(
             await runWarmUp({
               manager: session.manager,
               modelId: model.id,
-              tools: convertTools(context.tools),
-              instructions: context.systemPrompt ?? undefined,
+              tools: convertTools(resolveTools(context)),
+              instructions: resolveSystemPrompt(context),
               signal,
             });
           } catch {
@@ -859,7 +860,7 @@ export function createOpenAIWebSocketStreamFn(
         const remoteCompactionState = getRemoteCompactionState(sessionId);
         const continuationState = getContinuationState(sessionId);
         const typedOptions = options as WsOptions | undefined;
-        const functionTools = convertTools(context.tools);
+        const functionTools = convertTools(resolveTools(context));
         const requestKey = buildWsRequestKey({
           model,
           context,
