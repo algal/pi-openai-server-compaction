@@ -9,6 +9,9 @@ import { randomUUID } from "node:crypto";
 import {
   calculateCost,
   createAssistantMessageEventStream,
+  getCurrentSystemPrompt,
+  getCurrentTools,
+  normalizeContext,
   type AssistantMessage,
   type AssistantMessageEvent,
   type AssistantMessageEventStream,
@@ -20,11 +23,13 @@ import {
   type TextContent,
   type ToolCall,
   type Usage,
+  type JsonObject,
   type StreamFunction,
 } from "@earendil-works/pi-ai";
 import { streamSimpleOpenAIResponses } from "@earendil-works/pi-ai/compat";
 import { loadConfig } from "./config.ts";
 import {
+  applyRemoteHistoryPayloadPatch,
   isDirectOpenAIResponsesModel,
   modelKey,
   thinkingLevelToResponsesReasoning,
@@ -531,7 +536,7 @@ function buildAssistantMessageFromResponse(
         name: toolName,
         arguments: (() => {
           try {
-            return JSON.parse(item.arguments) as Record<string, unknown>;
+            return JSON.parse(item.arguments) as JsonObject;
           } catch {
             return {};
           }
@@ -737,9 +742,10 @@ async function fallbackToHttp(
       if (payload && typeof payload === "object") {
         const payloadObj = { ...(payload as Record<string, unknown>) };
         if (remoteCompactionState && remoteCompactionState.modelKey === modelKey(model)) {
-          payloadObj.input = normalizeResponseItemsForPrompt(remoteCompactionState.explicitHistory, model) as unknown[];
-          delete payloadObj.previous_response_id;
-          nextPayload = payloadObj;
+          nextPayload = applyRemoteHistoryPayloadPatch({
+            payload: payloadObj,
+            explicitHistory: normalizeResponseItemsForPrompt(remoteCompactionState.explicitHistory, model) as unknown[],
+          });
         } else if (
           typeof payloadObj.previous_response_id === "string" &&
           continuationState?.modelKey === modelKey(model) &&
@@ -757,7 +763,7 @@ async function fallbackToHttp(
       return chained ?? nextPayload;
     },
   } satisfies SimpleStreamOptions | undefined;
-  const httpStream = streamSimpleOpenAIResponses(model, context, mergedOptions);
+  const httpStream = streamSimpleOpenAIResponses(model, normalizeContext(context), mergedOptions);
   for await (const event of httpStream) {
     eventStream.push(event);
   }
@@ -776,7 +782,13 @@ async function fallbackToHttpResponses(
 export function createOpenAIWebSocketStreamFn(
   managerOptions: OpenAIWebSocketManagerOptions = {},
 ): StreamFunction {
-  return (model, context, options) => {
+  return (model, transcript, options) => {
+    // Pi 1.x carries prompt/tool changes as system messages in the transcript.
+    const context: Context = {
+      systemPrompt: getCurrentSystemPrompt(transcript.messages),
+      tools: getCurrentTools(transcript.messages),
+      messages: transcript.messages.filter((message) => message.role !== "system"),
+    };
     const eventStream = createEventStream();
 
     queueMicrotask(() => {

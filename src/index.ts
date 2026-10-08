@@ -206,6 +206,16 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
 
     const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
     if (!auth.ok || !auth.apiKey) return undefined;
+    const mergedHeaders = new Headers();
+    for (const source of [model.headers, auth.headers]) {
+      for (const [name, value] of Object.entries(source ?? {})) {
+        if (value === null) mergedHeaders.delete(name);
+        else mergedHeaders.set(name, value);
+      }
+    }
+    const headers = Object.fromEntries(mergedHeaders);
+    // Use Pi's resolved request headers and endpoint.
+    const requestModel = { ...model, headers, baseUrl: auth.baseUrl ?? model.baseUrl };
 
     const tools = buildToolsPayload(pi.getAllTools(), pi.getActiveTools());
     const sessionId = getSessionId(ctx);
@@ -228,9 +238,9 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
       generateBestEffortLocalSummary({
         preparation: event.preparation,
         messages: fullBranchMessages,
-        model,
+        model: requestModel,
         apiKey: auth.apiKey,
-        headers: auth.headers,
+        headers,
         customInstructions: event.customInstructions,
         signal: event.signal,
         thinkingLevel,
@@ -238,9 +248,9 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
         tokensBefore: event.preparation.tokensBefore,
       }),
       callRemoteCompactionEndpoint({
-        model,
+        model: requestModel,
         apiKey: auth.apiKey,
-        headers: auth.headers,
+        headers,
         sessionId,
         input: promptResponseItems,
         instructions: ctx.getSystemPrompt(),

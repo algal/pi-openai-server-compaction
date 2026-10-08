@@ -156,9 +156,13 @@ export function applyRemoteHistoryPayloadPatch(params: {
   payload: JsonRecord;
   explicitHistory: unknown[];
 }): JsonRecord {
+  // Pi 1.x puts the current system prompt in input rather than instructions.
+  const systemItems = Array.isArray(params.payload.input)
+    ? params.payload.input.filter((item) => isRecord(item) && (item.role === "system" || item.role === "developer"))
+    : [];
   const nextPayload: JsonRecord = {
     ...params.payload,
-    input: params.explicitHistory,
+    input: [...systemItems, ...params.explicitHistory],
   };
   delete nextPayload.messages;
   delete nextPayload.previous_response_id;

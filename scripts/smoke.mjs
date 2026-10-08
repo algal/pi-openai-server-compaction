@@ -1,12 +1,16 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, existsSync, lstatSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { mkdirSync, mkdtempSync, existsSync, lstatSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import assert from "node:assert/strict";
-import { homedir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const localNodeModules = join(repoRoot, "node_modules");
+// Identity-header tests must not create files in the user\'s real Codex home.
+const testCodexHome = mkdtempSync(join(tmpdir(), "pi-compaction-smoke-"));
+process.env.CODEX_HOME = testCodexHome;
+process.on("exit", () => rmSync(testCodexHome, { recursive: true, force: true }));
 
 function packagePathSegments(packageName) {
   return packageName.split("/");

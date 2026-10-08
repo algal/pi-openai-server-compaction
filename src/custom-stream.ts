@@ -6,7 +6,6 @@
  */
 import type {
   SimpleStreamOptions,
-  Context,
   Model,
   StreamFunction,
 } from "@earendil-works/pi-ai";
@@ -26,7 +25,7 @@ export const streamOpenAIResponsesWithPhase2B: StreamFunction = (
   if (!cfg.enabled || !isDirectOpenAIResponsesModel(model)) {
     return streamSimpleOpenAIResponses(
       model as Model<"openai-responses">,
-      context as Context,
+      context,
       options as SimpleStreamOptions | undefined,
     );
   }

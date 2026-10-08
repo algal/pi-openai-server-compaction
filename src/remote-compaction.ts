@@ -1022,8 +1022,7 @@ function assistantMessageMatchesModelKey(
   targetModelKey: string,
 ): boolean {
   const target = parseModelKeyParts(targetModelKey);
-  if (!target) return false;
-  if (!isRecord(message)) return false;
+  if (!target || message.role !== "assistant") return false;
   return message.provider === target.provider && message.model === target.id;
 }
 
