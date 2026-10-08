@@ -77,6 +77,12 @@ export function isOpenAICodexResponsesModel(model: ModelLike): boolean {
   return host === "chatgpt.com";
 }
 
+export function isGitHubCopilotResponsesModel(model: ModelLike): boolean {
+  return model.api === "openai-responses" &&
+    model.provider === "github-copilot" &&
+    typeof model.id === "string" && /^(?:gpt-|o[1-9](?:[.-]|$))/.test(model.id);
+}
+
 export function supportsPreviousResponseId(
   model: unknown,
   cfg: Required<ExtensionConfig>,
@@ -88,7 +94,7 @@ export function supportsPreviousResponseId(
 
 export function supportsRemoteCompactionModel(model: unknown): model is ModelLike {
   if (!isOpenAIResponsesModel(model)) return false;
-  return isDirectOpenAIResponsesModel(model) || isOpenAICodexResponsesModel(model);
+  return isDirectOpenAIResponsesModel(model) || isOpenAICodexResponsesModel(model) || isGitHubCopilotResponsesModel(model);
 }
 
 export function resolveCompactThreshold(
@@ -156,9 +162,13 @@ export function applyRemoteHistoryPayloadPatch(params: {
   payload: JsonRecord;
   explicitHistory: unknown[];
 }): JsonRecord {
+  // Pi 1.x puts the current system prompt in input rather than instructions.
+  const systemItems = Array.isArray(params.payload.input)
+    ? params.payload.input.filter((item) => isRecord(item) && (item.role === "system" || item.role === "developer"))
+    : [];
   const nextPayload: JsonRecord = {
     ...params.payload,
-    input: params.explicitHistory,
+    input: [...systemItems, ...params.explicitHistory],
   };
   delete nextPayload.messages;
   delete nextPayload.previous_response_id;

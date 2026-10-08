@@ -23,7 +23,7 @@ In practice, that means keeping two representations of context alive at once:
 2. **OpenAI-native representation**
    - for direct `openai/*`: `previous_response_id` for live continuation when safe
    - for supported backends: opaque replacement history returned by Responses compaction v2
-   - used only for compatible future OpenAI/OpenAI Codex turns
+   - used only for compatible future OpenAI, OpenAI Codex or Copilot OpenAI Responses turns
 
 ## High-level flow
 
@@ -39,20 +39,20 @@ In practice, that means keeping two representations of context alive at once:
 5. `src/openai-ws-stream.ts` either:
    - sends the request over the OpenAI Responses WebSocket transport, or
    - falls back to Pi's default HTTP Responses streaming path.
-6. For `openai-codex/*`, the extension mostly leaves the built-in Codex provider transport alone and only injects reconstructed remote-compaction history when needed.
+6. For `openai-codex/*` and Copilot OpenAI Responses models, the extension leaves the built-in provider transport alone and only injects reconstructed remote-compaction history when needed. Replay preserves the current system/developer messages and tool declarations.
 7. When a compatible assistant message completes, `src/index.ts` records the new `responseId` as continuation state only for the backends that support `previous_response_id`.
 
 ### Compaction turn
 
 1. Pi decides to compact or receives an explicit compact command.
-2. `src/index.ts` handles `session_before_compact`.
+2. `src/index.ts` handles `session_before_compact` and resolves request credentials, headers and any account-specific endpoint through Pi's model registry.
 3. In parallel, it tries to:
    - generate a **portable local summary**
    - request Responses compaction v2
 4. `src/remote-compaction.ts` converts Pi messages to OpenAI Responses `input` items, appends a `compaction_trigger`, and streams the compaction response from the normal Responses endpoint.
 5. If remote compaction succeeds, the returned opaque replacement history is stored in:
    - `CompactionEntry.details.remoteCompaction`
-6. Pi still keeps a text summary so the session remains understandable and portable.
+6. Pi still keeps a text summary so the session remains understandable and portable. Remote failure warns before falling back to text compaction; cancellation never returns a checkpoint. Failed or incomplete text summaries are not treated as successful compaction.
 
 ### Post-compaction continuation
 
@@ -110,7 +110,8 @@ The Codex-style compaction layer.
 
 Responsibilities:
 - convert Pi messages to OpenAI Responses-style input items
-- call `POST /v1/responses` with a trailing `compaction_trigger`
+- call the provider's Responses endpoint with a trailing `compaction_trigger` (`/responses` for Copilot, `/v1/responses` for direct OpenAI)
+- preserve Copilot model/authentication headers and identify compaction as agent-initiated
 - parse the Responses SSE stream and validate the returned `compaction` item
 - retain recent user messages using Codex's 20K-token budget shape
 - build portable text summaries
@@ -145,7 +146,7 @@ Responsibilities:
 Shared provider-specific helpers.
 
 Responsibilities:
-- identify direct OpenAI vs Azure OpenAI vs OpenAI Codex models
+- identify direct OpenAI, Azure OpenAI, OpenAI Codex and Copilot OpenAI Responses models
 - build stable model keys
 - patch Responses payloads
 - extract assistant `responseId`
@@ -178,7 +179,8 @@ The extension intentionally avoids reusing provider-native continuity blindly.
 
 Important safety rules:
 
-- remote replacement history is only reused for compatible OpenAI/OpenAI Codex Responses models
+- remote replacement history is only reused for matching provider/API/model keys on supported Responses models
+- Copilot credentials are sent only to the model's resolved endpoint; Copilot does not opt into stored-response continuity or the custom WebSocket stream
 - in-memory remote history is only extended while the active model still matches the compaction model
 - reconstructed remote history only replays post-compaction turns whose assistant completions match the compaction model, avoiding cross-model pollution after resume/tree reload
 - live `previous_response_id` state is cleared on key session/model lifecycle boundaries
@@ -208,6 +210,12 @@ So the package is intentionally hybrid:
 
 Verifies imports/loadability.
 
+### Offline Copilot protocol and lifecycle tests
+
+- `npm test`
+
+`tests/copilot.test.mjs` exercises the extension against a loopback HTTP fixture and also runs real Pi RPC subprocesses. It verifies account-specific routing, authentication and vision headers, native replay with current system instructions, model isolation, text fallback, cancellation, and persistence/replay across a process restart. These tests do not prove GitHub's live backend accepts the experimental protocol.
+
 ### Live end-to-end test
 
 - `npm run test:live`
@@ -221,6 +229,9 @@ This is a black-box integration test that drives real `pi --mode rpc` sessions a
 - model switch away and back
 - fork after compaction
 - resume/reload after compaction
+- reduced-plaintext recall in the same process and after restart, with an extension-disabled negative control
+
+The focused `github-copilot/gpt-6-luna` run passed against the live Copilot backend on Pi 1.1.0. See [Copilot live validation](VALIDATION.md#github-copilot-live-validation) for its scope and reproduction command.
 
 ### Controlled native-vs-text benchmark
 

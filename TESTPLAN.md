@@ -59,6 +59,17 @@
 - Confirm footer/session stats show non-zero token/cost totals.
 - Compare rough totals against dashboard/provider logs when possible.
 
+## Offline Copilot regression tests
+
+```sh
+npm install --ignore-scripts
+npm test
+```
+
+`tests/copilot.test.mjs` uses synthetic credentials and a loopback HTTP fixture. It checks the actual compaction request, safe fallback when the protocol is rejected or returns no artifact, cancellation, model isolation, and a real Pi RPC process restart with persisted native history.
+
+Copilot live verification remains separate: start a throwaway `github-copilot` GPT Responses session, run `/compact`, check `details.remoteCompaction`, and verify continuity on the next turn. A fallback warning or text-only checkpoint is not evidence of native backend support. Keep Copilot's built-in transport, stateless requests and provider-specific endpoint intact.
+
 ## Automated live test
 
 ```bash
@@ -70,12 +81,25 @@ PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai-codex/gpt-5.6-sol node --experimen
 
 The automated live harness lives in `tests/live/openai-compaction-rpc-live.ts`.
 
+Run only the reduced-plaintext Copilot test:
+
+```sh
+PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=github-copilot/gpt-6-luna \
+PI_OPENAI_SERVER_COMPACTION_TEST_SCOPE=reduced-plaintext \
+npm run test:live
+```
+
+This test generates a codename, compacts synthetic history, and checks that neither the portable summary nor visible replacement history contains it. It then checks exact recall in the same process and a fresh process. The fresh process loads a snapshot taken before recall, so it cannot use the first recall answer. A third process disables the extension and confirms that text-only context cannot recover the codename.
+
+The harness uses temporary workspaces and disables unrelated extensions, tools, skills, MCP servers and context files. It uses your existing credentials and consumes provider usage. Set `PI_OPENAI_SERVER_COMPACTION_TEST_KEEP_ARTIFACTS=1` to retain successful runs, or `PI_OPENAI_SERVER_COMPACTION_TEST_CLI` to select a Pi `dist/cli.js` installation. See [Copilot live validation](VALIDATION.md#github-copilot-live-validation) for the recorded result.
+
 Current automated coverage includes:
 - compaction continuity in the same session
 - `/model`-style switch away and back again
 - fork after compaction
 - resume/reload after compaction
 - resume/reload after switching away from and back to the compacted model
+- reduced-plaintext replay in the same process and after restart, with a text-only negative control
 
 Recommended follow-up live regression:
 - explicit tree navigation after an intervening other-model turn, followed by restart

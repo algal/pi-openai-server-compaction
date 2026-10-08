@@ -17,7 +17,6 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { createInterface } from "node:readline";
 import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 
@@ -46,6 +45,7 @@ const extensionPath = join(repoRoot, "src", "index.ts");
 const primaryModel = process.env.PI_OPENAI_SERVER_COMPACTION_TEST_MODEL ?? "openai/gpt-5.4-nano";
 const primaryModelProvider = primaryModel.includes("/") ? primaryModel.split("/")[0] ?? "openai" : "openai";
 const primaryModelId = primaryModel.includes("/") ? primaryModel.split("/").at(-1) ?? primaryModel : primaryModel;
+const testScope = process.env.PI_OPENAI_SERVER_COMPACTION_TEST_SCOPE ?? "all";
 const defaultRequestTimeoutMs = 120_000;
 const idlePollIntervalMs = 500;
 const compactionPadding = "context-padding ".repeat(7_000);
@@ -167,8 +167,8 @@ class PiRpcClient {
   private readonly exitPromise: Promise<void>;
   private resolveExit!: () => void;
 
-  constructor(sessionDir: string, sessionFile?: string, cwd?: string) {
-    const env = { ...process.env };
+  constructor(sessionDir: string, sessionFile?: string, cwd?: string, envOverrides?: NodeJS.ProcessEnv) {
+    const env = { ...process.env, ...envOverrides };
     env.PI_OPENAI_SERVER_COMPACTION_NOTIFY ??= "0";
 
     const args = [
@@ -182,12 +182,23 @@ class PiRpcClient {
       "-e",
       extensionPath,
       "--no-tools",
+      "--no-skills",
+      "--no-mcp",
+      "--no-context-files",
+      "--no-prompt-templates",
+      "--offline",
+      "--approve",
+      "--thinking",
+      "low",
+      "--system-prompt",
+      "You are helping with a synthetic compaction continuity test. Follow the user's output-format instructions exactly.",
     ];
     if (sessionFile) {
       args.push("--session", sessionFile);
     }
 
-    this.child = spawn("pi", args, {
+    const cliPath = process.env.PI_OPENAI_SERVER_COMPACTION_TEST_CLI;
+    this.child = spawn(cliPath ? process.execPath : "pi", cliPath ? [cliPath, ...args] : args, {
       stdio: ["pipe", "pipe", "pipe"],
       env,
       ...(cwd ? { cwd } : {}),
@@ -199,13 +210,17 @@ class PiRpcClient {
       this.resolveExit = resolve;
     });
 
-    createInterface({ input: this.child.stdout }).on("line", (line) => {
-      this.handleStdoutLine(line.trim());
+    let stdoutBuffer = "";
+    this.child.stdout.on("data", (chunk: string) => {
+      stdoutBuffer += chunk;
+      let newline: number;
+      while ((newline = stdoutBuffer.indexOf("\n")) !== -1) {
+        this.handleStdoutLine(stdoutBuffer.slice(0, newline).trim());
+        stdoutBuffer = stdoutBuffer.slice(newline + 1);
+      }
     });
 
-    createInterface({ input: this.child.stderr }).on("line", (line) => {
-      process.stderr.write(`${line}\n`);
-    });
+    this.child.stderr.on("data", (chunk: string) => process.stderr.write(chunk));
 
     this.child.on("error", (error) => {
       this.failPendingRequests(`pi process error: ${error.message}`);
@@ -233,6 +248,10 @@ class PiRpcClient {
 
     if (!isRecord(parsed)) {
       return;
+    }
+
+    if (parsed.type === "extension_ui_request" && parsed.method === "notify" && typeof parsed.message === "string") {
+      process.stderr.write(`PI NOTICE: ${parsed.message.slice(0, 2000)}\n`);
     }
 
     if (parsed.type === "response") {
@@ -503,7 +522,8 @@ async function runReducedPlaintextReplayTest(sessionDir: string, workspaceDir: s
       240_000,
     );
     const compactData = asRecord(compactResponse.data, "reduced-plaintext compact.data");
-    void asString(compactData.summary, "reduced-plaintext compact.data.summary");
+    const summary = asString(compactData.summary, "reduced-plaintext compact.data.summary");
+    expect(!summary.includes(secret), "Portable text summary still contains codename; opaque replay is not isolated");
 
     const remoteCompaction = nestedRecord(nestedRecord(compactData.details).remoteCompaction);
     expect(
@@ -527,6 +547,13 @@ async function runReducedPlaintextReplayTest(sessionDir: string, workspaceDir: s
       `Visible replacementHistory still contains secret; opaque replay is not isolated. Visible history: ${visibleHistory}`,
     );
 
+    // Snapshot before recall so the resumed process cannot use that answer as plaintext.
+    const state = await client.getState();
+    const sessionFile = asString(state.sessionFile, "reduced-plaintext get_state.data.sessionFile");
+    const snapshotFile = join(sessionDir, "after-compaction.snapshot.jsonl");
+    const snapshot = await readFile(sessionFile, "utf8");
+    await writeFile(snapshotFile, snapshot, "utf8");
+
     await client.send({
       type: "prompt",
       message: "What is the project codename? Reply with just the codeword.",
@@ -534,9 +561,55 @@ async function runReducedPlaintextReplayTest(sessionDir: string, workspaceDir: s
     await client.waitIdle();
     const answer = assistantText(await client.getMessages());
     expect(
-      answer.includes(secret),
+      answer.trim() === secret,
       `Expected reduced-plaintext replay path to recover secret; got: ${answer}`,
     );
+    console.log("same-process reduced-plaintext replay passed");
+
+    await client.close();
+    const resumed = new PiRpcClient(sessionDir, snapshotFile, workspaceDir);
+    try {
+      await resumed.waitIdle();
+      await resumed.send({
+        type: "prompt",
+        message: "What is the project codename? Reply with just the codeword.",
+      });
+      await resumed.waitIdle();
+      const resumedAnswer = assistantText(await resumed.getMessages());
+      expect(
+        resumedAnswer.trim() === secret,
+        `Expected resumed reduced-plaintext replay to recover secret; got: ${resumedAnswer}`,
+      );
+      console.log("fresh-process reduced-plaintext replay passed");
+    } finally {
+      await resumed.close();
+    }
+
+    const controlFile = join(sessionDir, "without-native.snapshot.jsonl");
+    await writeFile(controlFile, snapshot, "utf8");
+    const control = new PiRpcClient(sessionDir, controlFile, workspaceDir, {
+      PI_OPENAI_SERVER_COMPACTION_ENABLED: "0",
+    });
+    try {
+      await control.waitIdle();
+      await control.send({
+        type: "prompt",
+        message: "What is the project codename? Reply with just the codeword.",
+      });
+      await control.waitIdle();
+      const messages = await control.getMessages();
+      const lastAssistant = [...messages].reverse().find((message) => isRecord(message) && message.role === "assistant");
+      expect(
+        isRecord(lastAssistant) && lastAssistant.stopReason === "stop",
+        "Text-only negative control failed or was truncated for an unrelated reason",
+      );
+      const controlAnswer = assistantText(messages);
+      expect(controlAnswer.trim().length > 0, "Text-only negative control returned no answer");
+      expect(!controlAnswer.includes(secret), "Text-only control recovered codename; opaque replay test is inconclusive");
+      console.log("text-only negative control could not recover codename (expected)");
+    } finally {
+      await control.close();
+    }
 
     console.log("reduced-plaintext replay test passed");
   } finally {
@@ -764,19 +837,26 @@ async function main(): Promise<void> {
       },
     });
 
-    await runSameProcessTest(sameProcessDir, workspaceDir);
-    if (primaryModelProvider === "openai") {
+    if (testScope === "reduced-plaintext") {
       await runReducedPlaintextReplayTest(reducedPlaintextDir, reducedPlaintextWorkspaceDir);
     } else {
-      console.log("== reduced-plaintext replay test ==");
-      console.log("skipped for non-direct OpenAI provider");
+      expect(testScope === "all", `Unknown test scope: ${testScope}`);
+      await runSameProcessTest(sameProcessDir, workspaceDir);
+      if (primaryModelProvider === "openai" || primaryModelProvider === "github-copilot") {
+        await runReducedPlaintextReplayTest(reducedPlaintextDir, reducedPlaintextWorkspaceDir);
+      } else {
+        console.log("== reduced-plaintext replay test ==");
+        console.log("skipped for this provider");
+      }
+      await runForkTest(forkDir, workspaceDir);
+      await runResumeTest(resumeDir, workspaceDir);
+      await runResumeAfterModelSwitchTest(resumeAfterSwitchDir, workspaceDir);
     }
-    await runForkTest(forkDir, workspaceDir);
-    await runResumeTest(resumeDir, workspaceDir);
-    await runResumeAfterModelSwitchTest(resumeAfterSwitchDir, workspaceDir);
 
-    console.log(`ALL LIVE TESTS PASSED\nartifacts: ${artifactsRoot}`);
-    await rm(artifactsRoot, { recursive: true, force: true });
+    console.log(`ALL SELECTED LIVE TESTS PASSED\nartifacts: ${artifactsRoot}`);
+    if (process.env.PI_OPENAI_SERVER_COMPACTION_TEST_KEEP_ARTIFACTS !== "1") {
+      await rm(artifactsRoot, { recursive: true, force: true });
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`LIVE TEST FAILURE: ${message}\n`);

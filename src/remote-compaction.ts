@@ -26,6 +26,7 @@ import {
   hostnameFromBaseUrl,
   isDirectOpenAIResponsesModel,
   isOpenAICodexResponsesModel,
+  isGitHubCopilotResponsesModel,
   supportsRemoteCompactionModel,
   modelKey,
 } from "./openai.ts";
@@ -125,6 +126,10 @@ function resolveCodexResponsesEndpoint(model: Model<any>): string {
 }
 
 export function remoteCompactionV2EndpointUrl(model: Model<any>): string {
+  if (isGitHubCopilotResponsesModel(model)) {
+    const baseUrl = normalizeBaseUrl(model.baseUrl, "https://api.individual.githubcopilot.com");
+    return baseUrl.endsWith("/responses") ? baseUrl : `${baseUrl}/responses`;
+  }
   if (isDirectOpenAIResponsesModel(model)) {
     return resolveDirectOpenAIResponsesEndpoint(model);
   }
@@ -214,12 +219,37 @@ function withRemoteCompactionV2Feature(headers: Record<string, string>): Record<
   };
 }
 
+function hasImageInput(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasImageInput);
+  if (!isRecord(value)) return false;
+  return value.type === "input_image" || Object.values(value).some(hasImageInput);
+}
+
 export function buildRemoteCompactionHeaders(params: {
   model: Model<any>;
   apiKey: string;
   headers?: Record<string, string>;
   sessionId?: string;
+  input?: ResponseItem[];
 }): Record<string, string> {
+  if (isGitHubCopilotResponsesModel(params.model)) {
+    const headers = new Headers();
+    for (const source of [params.model.headers, params.headers]) {
+      for (const [name, value] of Object.entries(source ?? {})) {
+        if (value === null) headers.delete(name);
+        else headers.set(name, value);
+      }
+    }
+    headers.set("authorization", `Bearer ${params.apiKey}`);
+    headers.set("accept", "text/event-stream");
+    headers.set("content-type", "application/json");
+    headers.set("X-Initiator", "agent");
+    headers.set("Openai-Intent", "conversation-edits");
+    if (hasImageInput(params.input)) headers.set("Copilot-Vision-Request", "true");
+    if (params.sessionId) headers.set("x-client-request-id", params.sessionId);
+    return withRemoteCompactionV2Feature(Object.fromEntries(headers));
+  }
+
   const codexIdentityHeaders = buildCodexIdentityHeaders(params.sessionId);
   const commonHeaders = withRemoteCompactionV2Feature({
     authorization: `Bearer ${params.apiKey}`,
@@ -707,14 +737,20 @@ export async function generatePortableSummary(params: {
     },
   );
 
+  if (response.stopReason === "error" || response.stopReason === "aborted" || response.stopReason === "length") {
+    throw new Error(response.errorMessage ?? `Portable summary ended with ${response.stopReason}.`);
+  }
+
   const summary = response.content
     .filter((item): item is { type: "text"; text: string } => item.type === "text")
     .map((item) => item.text)
     .join("\n")
     .trim();
 
+  if (!summary) throw new Error("Portable summary was empty.");
+
   return {
-    summary: summary || buildCompactionSummaryText(params.model),
+    summary,
     firstKeptEntryId: params.firstKeptEntryId,
     tokensBefore: params.tokensBefore,
   };
@@ -895,7 +931,12 @@ export function parseRemoteCompactionV2Events(events: unknown[]): RemoteCompacti
       throw new Error(`OpenAI remote compaction v2 failed: ${message}`);
     }
     if (event.type === "response.output_item.done" && isResponseItem(event.item)) {
-      if (event.item.type === "compaction") compactionItems.push(event.item);
+      if (event.item.type === "compaction") {
+        if (typeof event.item.encrypted_content !== "string" || !event.item.encrypted_content.trim()) {
+          throw new Error("Remote compaction returned an empty or invalid encrypted artifact.");
+        }
+        compactionItems.push(event.item);
+      }
       continue;
     }
     if (event.type === "response.completed") {
@@ -940,6 +981,7 @@ export async function callRemoteCompactionEndpoint(params: {
       apiKey: params.apiKey,
       headers: params.headers,
       sessionId: params.sessionId,
+      input: params.input,
     }),
     body: JSON.stringify(buildRemoteCompactionRequestBody({
       model: params.model,
@@ -1022,8 +1064,7 @@ function assistantMessageMatchesModelKey(
   targetModelKey: string,
 ): boolean {
   const target = parseModelKeyParts(targetModelKey);
-  if (!target) return false;
-  if (!isRecord(message)) return false;
+  if (!target || message.role !== "assistant") return false;
   return message.provider === target.provider && message.model === target.id;
 }
 

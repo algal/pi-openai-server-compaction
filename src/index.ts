@@ -15,6 +15,7 @@ import {
   extractResponsesReasoningConfig,
   extractResponsesTextConfig,
   isOpenAICodexResponsesModel,
+  isGitHubCopilotResponsesModel,
   looksLikeResponsesPayload,
   messageMatchesModel,
   modelKey,
@@ -206,6 +207,16 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
 
     const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
     if (!auth.ok || !auth.apiKey) return undefined;
+    const mergedHeaders = new Headers();
+    for (const source of [model.headers, auth.headers]) {
+      for (const [name, value] of Object.entries(source ?? {})) {
+        if (value === null) mergedHeaders.delete(name);
+        else mergedHeaders.set(name, value);
+      }
+    }
+    const headers = Object.fromEntries(mergedHeaders);
+    // OAuth resolves different Copilot endpoints for individual/business/enterprise accounts.
+    const requestModel = { ...model, headers, baseUrl: auth.baseUrl ?? model.baseUrl };
 
     const tools = buildToolsPayload(pi.getAllTools(), pi.getActiveTools());
     const sessionId = getSessionId(ctx);
@@ -228,9 +239,9 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
       generateBestEffortLocalSummary({
         preparation: event.preparation,
         messages: fullBranchMessages,
-        model,
+        model: requestModel,
         apiKey: auth.apiKey,
-        headers: auth.headers,
+        headers,
         customInstructions: event.customInstructions,
         signal: event.signal,
         thinkingLevel,
@@ -238,9 +249,9 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
         tokensBefore: event.preparation.tokensBefore,
       }),
       callRemoteCompactionEndpoint({
-        model,
+        model: requestModel,
         apiKey: auth.apiKey,
-        headers: auth.headers,
+        headers,
         sessionId,
         input: promptResponseItems,
         instructions: ctx.getSystemPrompt(),
@@ -252,15 +263,14 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
       }),
     ]);
 
+    if (event.signal.aborted) return undefined;
+
     if (remoteResult.status !== "fulfilled") {
-      if (localResult.status === "fulfilled") {
-        return { compaction: localResult.value };
-      }
-      if (!event.signal.aborted && ctx.hasUI) {
+      if (ctx.hasUI) {
         const message = remoteResult.reason instanceof Error ? remoteResult.reason.message : String(remoteResult.reason);
-        ctx.ui.notify(`OpenAI remote compaction failed; falling back to default compaction. ${message}`, "warning");
+        ctx.ui.notify(`Remote compaction failed for ${model.provider}/${model.id}; falling back to text compaction. ${message}`, "warning");
       }
-      return undefined;
+      return localResult.status === "fulfilled" ? { compaction: localResult.value } : undefined;
     }
 
     const remoteDetails = buildRemoteCompactionDetails(
@@ -330,7 +340,7 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
     });
     const remoteState = getMatchingRemoteState(sessionId, model);
 
-    if (isOpenAICodexResponsesModel(model)) {
+    if (isOpenAICodexResponsesModel(model) || isGitHubCopilotResponsesModel(model)) {
       if (!remoteState) return undefined;
       const payload = applyRemoteHistoryPayloadPatch({
         payload: event.payload,

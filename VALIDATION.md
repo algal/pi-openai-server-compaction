@@ -1,5 +1,32 @@
 # Validation
 
+## GitHub Copilot live validation
+
+On 8 October 2026, the focused live test passed with Pi 1.1.0 and `github-copilot/gpt-6-luna`. It used real Copilot OAuth credentials and the live backend, not the loopback fixture.
+
+The test used synthetic conversation history and checked:
+
+- normal model replies through Pi's built-in Copilot transport
+- an encrypted `compaction` artifact returned by the explicit Responses v2 protocol and saved in `details.remoteCompaction`
+- exact recall of an assistant-generated codename absent from both the portable text summary and visible replacement history
+- exact recall after restarting Pi from a snapshot taken before the first recall answer
+- a text-only negative control that completed normally but did not recover the codename
+
+The final run returned a 4,324-character encrypted artifact. Its saved model key was `github-copilot:openai-responses:gpt-6-luna` and implementation was `responses_compaction_v2`.
+
+Reproduce the focused test:
+
+```sh
+PI_OPENAI_SERVER_COMPACTION_ENABLED=1 \
+PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=github-copilot/gpt-6-luna \
+PI_OPENAI_SERVER_COMPACTION_TEST_SCOPE=reduced-plaintext \
+npm run test:live
+```
+
+Set `PI_OPENAI_SERVER_COMPACTION_TEST_KEEP_ARTIFACTS=1` to retain successful session files. The harness prints their temporary directory. The recorded run retained its local session files; these are not committed evidence.
+
+This validates the tested model and OAuth account. It does not establish support for every Copilot model or account tier. Live tool calls, image input, model switching and tree navigation remain untested on Copilot. This is a continuity regression test, not a compaction-quality or billing benchmark.
+
 ## Current Responses compaction v2 validation
 
 The full live Pi RPC suite passes with both:

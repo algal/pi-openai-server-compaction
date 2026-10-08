@@ -3,8 +3,14 @@
 This changelog intentionally starts at **0.1.0**.
 
 ## Unreleased
-- target Pi 0.80.9 and the `@earendil-works/*` package namespace
-- align compaction fallback, Responses payload normalization, Codex identity headers, and WebSocket behavior with Pi 0.80.9
+- target Pi 1.1.0 and the `@earendil-works/*` package namespace
+- adapt the custom WebSocket path to Pi's transcript-based system prompt and tool declarations
+- add experimental remote compaction and native replay for Copilot GPT and o-series Responses models using resolved account endpoints and Copilot headers
+- preserve current system instructions during native HTTP replay and keep Copilot's built-in transport and stateless request behavior
+- warn on remote rejection, reject failed/empty text summaries, and avoid checkpoints after cancellation
+- add offline Copilot HTTP contract tests and real Pi RPC persistence/restart coverage
+- validate live `github-copilot/gpt-6-luna` native compaction and reduced-plaintext replay in Pi 1.1.0, including a fresh process and a text-only negative control
+- isolate smoke-test Codex identity files from the user's real Codex home
 - replace the legacy `/responses/compact` call with Codex's current Responses compaction v2 protocol
 - stream a normal Responses request with a trailing `compaction_trigger` and persist the returned `compaction` item
 - retain recent user messages with the same 20K-token budget shape used by Codex while continuing to read legacy version 1 session artifacts
