@@ -14,8 +14,10 @@ import { dirname, join } from "node:path";
 import type { SessionBeforeCompactEvent, ToolInfo } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage, ThinkingLevel } from "@earendil-works/pi-agent-core";
 import {
+  buildSessionContext,
   compact,
   convertToLlm,
+  type SessionEntry,
   serializeConversation,
   type CompactionResult,
 } from "@earendil-works/pi-coding-agent";
@@ -24,7 +26,7 @@ import { complete } from "@earendil-works/pi-ai/compat";
 import { isRecord } from "./config.ts";
 import {
   hostnameFromBaseUrl,
-  isDirectOpenAIResponsesModel,
+  isOpenAIResponsesCompactionModel,
   isOpenAICodexResponsesModel,
   supportsRemoteCompactionModel,
   modelKey,
@@ -111,7 +113,7 @@ function normalizeBaseUrl(baseUrl: string | undefined, fallback: string): string
   return trimmed.replace(/\/+$/, "");
 }
 
-function resolveDirectOpenAIResponsesEndpoint(model: Model<any>): string {
+function resolveOpenAIResponsesEndpoint(model: Model<any>): string {
   const baseUrl = normalizeBaseUrl(typeof model.baseUrl === "string" ? model.baseUrl : undefined, "https://api.openai.com/v1");
   if (baseUrl.endsWith("/responses")) return baseUrl;
   return baseUrl.endsWith("/v1") ? `${baseUrl}/responses` : `${baseUrl}/v1/responses`;
@@ -125,8 +127,8 @@ function resolveCodexResponsesEndpoint(model: Model<any>): string {
 }
 
 export function remoteCompactionV2EndpointUrl(model: Model<any>): string {
-  if (isDirectOpenAIResponsesModel(model)) {
-    return resolveDirectOpenAIResponsesEndpoint(model);
+  if (isOpenAIResponsesCompactionModel(model)) {
+    return resolveOpenAIResponsesEndpoint(model);
   }
   if (isOpenAICodexResponsesModel(model)) {
     return resolveCodexResponsesEndpoint(model);
@@ -228,7 +230,7 @@ export function buildRemoteCompactionHeaders(params: {
     accept: "text/event-stream",
     "content-type": "application/json",
   });
-  if (isDirectOpenAIResponsesModel(params.model)) {
+  if (isOpenAIResponsesCompactionModel(params.model)) {
     return commonHeaders;
   }
   if (isOpenAICodexResponsesModel(params.model)) {
@@ -707,14 +709,18 @@ export async function generatePortableSummary(params: {
     },
   );
 
+  if (response.stopReason !== "stop") {
+    throw new Error(response.errorMessage || "Portable compaction summary did not complete");
+  }
   const summary = response.content
     .filter((item): item is { type: "text"; text: string } => item.type === "text")
     .map((item) => item.text)
     .join("\n")
     .trim();
 
+  if (!summary) throw new Error("Portable compaction summary was empty");
   return {
-    summary: summary || buildCompactionSummaryText(params.model),
+    summary,
     firstKeptEntryId: params.firstKeptEntryId,
     tokensBefore: params.tokensBefore,
   };
@@ -1023,8 +1029,8 @@ function assistantMessageMatchesModelKey(
 ): boolean {
   const target = parseModelKeyParts(targetModelKey);
   if (!target) return false;
-  if (!isRecord(message)) return false;
-  return message.provider === target.provider && message.model === target.id;
+  if (message.role !== "assistant") return false;
+  return message.provider === target.provider && message.api === target.api && message.model === target.id;
 }
 
 export function reconstructRemoteCompactionStateFromBranch(params: {
@@ -1044,23 +1050,20 @@ export function reconstructRemoteCompactionStateFromBranch(params: {
   if (!latestDetails || latestCompactionIndex < 0) return undefined;
 
   const trailingMessages: ResponseItem[] = [];
-  let pendingTurnItems: ResponseItem[] = [];
 
   for (const entry of params.branchEntries.slice(latestCompactionIndex + 1)) {
-    if (entry.type !== "message" || !entry.message) continue;
-
-    const items = messageToResponseItems(entry.message);
-    if (items.length === 0) continue;
-
-    if (entry.message.role === "assistant") {
-      if (assistantMessageMatchesModelKey(entry.message, latestDetails.modelKey)) {
-        trailingMessages.push(...pendingTurnItems, ...items);
-      }
-      pendingTurnItems = [];
+    // Never silently discard another model's work or persisted context edits.
+    if (entry.type === "context_edit") return undefined;
+    if (entry.type === "custom_message" || entry.type === "branch_summary") {
+      const messages = convertToLlm(buildSessionContext([entry as SessionEntry]).messages);
+      trailingMessages.push(...messagesToResponseItems(messages));
       continue;
     }
-
-    pendingTurnItems.push(...items);
+    if (entry.type !== "message" || !entry.message) continue;
+    if (entry.message.role === "assistant" && !assistantMessageMatchesModelKey(entry.message, latestDetails.modelKey)) {
+      return undefined;
+    }
+    trailingMessages.push(...messageToResponseItems(entry.message));
   }
 
   return {

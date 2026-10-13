@@ -25,6 +25,7 @@ import {
 import { streamSimpleOpenAIResponses } from "@earendil-works/pi-ai/compat";
 import { loadConfig } from "./config.ts";
 import {
+  applyRemoteHistoryPayloadPatch,
   isDirectOpenAIResponsesModel,
   modelKey,
   thinkingLevelToResponsesReasoning,
@@ -531,7 +532,7 @@ function buildAssistantMessageFromResponse(
         name: toolName,
         arguments: (() => {
           try {
-            return JSON.parse(item.arguments) as Record<string, unknown>;
+            return JSON.parse(item.arguments) as ToolCall["arguments"];
           } catch {
             return {};
           }
@@ -737,9 +738,10 @@ async function fallbackToHttp(
       if (payload && typeof payload === "object") {
         const payloadObj = { ...(payload as Record<string, unknown>) };
         if (remoteCompactionState && remoteCompactionState.modelKey === modelKey(model)) {
-          payloadObj.input = normalizeResponseItemsForPrompt(remoteCompactionState.explicitHistory, model) as unknown[];
-          delete payloadObj.previous_response_id;
-          nextPayload = payloadObj;
+          nextPayload = applyRemoteHistoryPayloadPatch({
+            payload: payloadObj,
+            explicitHistory: normalizeResponseItemsForPrompt(remoteCompactionState.explicitHistory, model) as unknown[],
+          });
         } else if (
           typeof payloadObj.previous_response_id === "string" &&
           continuationState?.modelKey === modelKey(model) &&
@@ -757,7 +759,7 @@ async function fallbackToHttp(
       return chained ?? nextPayload;
     },
   } satisfies SimpleStreamOptions | undefined;
-  const httpStream = streamSimpleOpenAIResponses(model, context, mergedOptions);
+  const httpStream = streamSimpleOpenAIResponses(model, context as Parameters<typeof streamSimpleOpenAIResponses>[1], mergedOptions);
   for await (const event of httpStream) {
     eventStream.push(event);
   }
@@ -790,7 +792,11 @@ export function createOpenAIWebSocketStreamFn(
         const sessionId = options?.sessionId;
         const apiKey = options?.apiKey;
         const transport = resolveWsTransport(options);
-        if (transport === "sse" || !sessionId || !apiKey) {
+        // The legacy WebSocket builder reads context.systemPrompt/tools.
+        // Transcript-system contexts need Pi's built-in converter so current
+        // instructions and tool declarations are not silently discarded.
+        const hasTranscriptSystem = context.messages.some((message) => (message.role as string) === "system");
+        if (transport === "sse" || !sessionId || !apiKey || hasTranscriptSystem) {
           return await fallbackToHttpResponses(model, context, options, eventStream);
         }
 
@@ -847,8 +853,8 @@ export function createOpenAIWebSocketStreamFn(
             await runWarmUp({
               manager: session.manager,
               modelId: model.id,
-              tools: convertTools(context.tools),
-              instructions: context.systemPrompt ?? undefined,
+              tools: convertTools((context as Context).tools),
+              instructions: (context as Context).systemPrompt ?? undefined,
               signal,
             });
           } catch {
@@ -859,7 +865,7 @@ export function createOpenAIWebSocketStreamFn(
         const remoteCompactionState = getRemoteCompactionState(sessionId);
         const continuationState = getContinuationState(sessionId);
         const typedOptions = options as WsOptions | undefined;
-        const functionTools = convertTools(context.tools);
+        const functionTools = convertTools((context as Context).tools);
         const requestKey = buildWsRequestKey({
           model,
           context,

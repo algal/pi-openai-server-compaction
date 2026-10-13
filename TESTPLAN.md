@@ -18,8 +18,9 @@
 ### 1. Baseline supported turn
 - Start Pi with this extension enabled.
 - Use either:
-  - a direct `openai/*` Responses model, or
-  - an `openai-codex/*` model
+  - a direct `openai/*` Responses model,
+  - an `openai-codex/*` model, or
+  - a custom `openai-responses` provider with an explicit `baseUrl` and a recognized OpenAI model id
 - Confirm normal response succeeds.
 
 ### 2. Live continuation path
@@ -35,6 +36,7 @@
 - Continue the session and confirm later compatible turns still behave coherently.
 - Confirm `details.remoteCompaction.implementation` is `responses_compaction_v2`.
 - Confirm replacement history ends with an opaque `compaction` item and retains only the recent user-message budget outside that item.
+- For a custom provider, confirm compaction uses that provider's normal `/v1/responses` endpoint with the `remote_compaction_v2` beta feature and that the following turn receives explicit replacement history.
 
 ### 4. `/model` safety
 - After remote compaction, switch to another model with `/model`.

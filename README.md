@@ -48,6 +48,7 @@ https://x.com/alexisgallagher/status/2042396986327060736?s=20 .)
 |-----------------------|-----------------------------|-----------------------------------|----------------------------------|-------------|
 | `openai/*`            | Yes                         | Yes                               | Yes                              | Yes         |
 | `openai-codex/*`      | Yes                         | No (built-in transport retained)  | No (built-in transport retained) | Yes         |
+| Custom Responses provider with an OpenAI model id | Yes | No | No | Yes (`isara/gpt-5.6-sol`) |
 | Azure                 | Partial (opt-in via config) | Partial                           | No                               | No          |
 
 ## Install
@@ -75,9 +76,9 @@ pi -e ./src/index.ts --model openai/gpt-5.6-luna
 ## Requirements
 
 - Node `>= 22`
-- Pi `>=0.80.9 <0.81.0`
+- Pi `^0.80.9` or `^1.0.4` (virtual-model routing requires a Pi version with virtual-model support)
 - Auth/config for the model you want to use must already work in Pi
-- A supported OpenAI Responses model, e.g. `openai/gpt-5.6-sol` or `openai-codex/gpt-5.6-sol`
+- A supported OpenAI Responses model, e.g. `openai/gpt-5.6-sol`, `openai-codex/gpt-5.6-sol`, or an OpenAI model exposed by a custom `openai-responses` provider
 
 ## What it does
 
@@ -89,27 +90,35 @@ On compaction, the extension requests Responses compaction v2 through `/v1/respo
 For direct `openai/*` models between compactions, the extension also:
 
 - Patches requests with `store: true` and `context_management`
-- Uses `previous_response_id` for live continuation when safe
-- Provides a WebSocket-backed transport path with HTTP fallback
+- Uses `previous_response_id` for legacy WebSocket incremental continuation; full HTTP transcripts do not also get a previous-response pointer
+- Provides a WebSocket-backed transport path with HTTP fallback; transcript-system contexts use Pi's built-in HTTP conversion to preserve current instructions and tool declarations
 
 For `openai-codex/*` models, the extension preserves the built-in Codex transport and only injects reconstructed remote compaction history after compaction boundaries.
+
+For custom or multi-model providers using the `openai-responses` API, remote compaction is enabled when the canonical model id identifies an OpenAI model (`gpt-*`, `o1-*`, `o3-*`, `o4-*`, `chatgpt-*`, or `codex-*`) and the effective model has an explicit `baseUrl`. Provider display names and model display names are intentionally ignored: the stable model id avoids opting an unrelated model into the protocol merely because a label contains “GPT.” Requiring the custom endpoint prevents a custom credential from accidentally falling back to `api.openai.com`. These providers retain their normal transport; the extension only calls their `<baseUrl>/responses` endpoint for compaction and injects replacement history after a successful compaction.
+
+### Virtual models and routing
+
+Virtual selections such as `model-switcher/auto` are supported on Pi versions that provide virtual models. Compaction uses the latest physical assistant response in finalized session context, not the virtual catalog entry. Request patching uses the outgoing Responses payload's model ID, so a new route does not inherit the previous turn's provider settings.
+
+The request hook exposes a model ID but no provider. If multiple authenticated Responses providers offer the same ID, a validated native checkpoint identifies the provider to replay. Without a matching checkpoint, the extension leaves that request unchanged. Routers must not switch between different providers offering the same model ID while reusing a checkpoint; Pi does not expose enough request metadata to detect that switch. GPT/Claude routing with distinct model IDs is supported. Non-Responses requests, including Claude turns, are never patched.
 
 ## How compaction works
 
 On Pi compaction events for supported models, the extension:
 
-1. Generates a **portable Pi text summary** (full-branch summary with fallback to Pi's built-in compaction helper)
+1. Generates a **portable Pi text summary** (finalized, compaction-aware context with fallback to Pi's built-in compaction helper)
 2. Calls `POST /v1/responses` with the conversation history, a trailing `compaction_trigger`, system prompt, tools, reasoning config, and text config
 3. Retains recent user messages and stores them with the returned opaque `compaction` item in `CompactionEntry.details.remoteCompaction`
 4. Persists remote compaction usage metadata when the backend returns it
 
-The compaction request mirrors the shape of surrounding normal requests (reasoning effort, text settings, tool definitions) rather than using endpoint defaults.
+The compaction request mirrors the shape of surrounding normal requests (reasoning effort, text settings, tool definitions) rather than using endpoint defaults. Incomplete or empty portable summaries fall back to Pi's summary helper. If both portable summary attempts fail but remote compaction succeeds, the extension warns that switching models may lose summarized context.
 
 ## Safety
 
 The extension clears live continuation state on: session start/reload/resume, switch/fork, tree navigation, compaction completion, model selection, and shutdown.
 
-Remote compaction history is only replayed for compatible models. Cross-model turns are filtered from reconstructed replay history to prevent contamination after resume or tree navigation.
+Remote compaction history is only replayed for a compatible, unchanged single-model suffix. A GPT → Claude → GPT switch invalidates the old remote checkpoint rather than silently dropping Claude's work. The extension then uses Pi's portable context until a new remote checkpoint is saved. Persisted context edits also invalidate replay. Reload and tree navigation reconstruct pending user messages, tool results, and extension messages such as background notifications, not just completed assistant turns.
 
 ## Data handling
 
@@ -149,6 +158,30 @@ Environment overrides:
 | `PI_OPENAI_SERVER_COMPACTION_PREVIOUS_RESPONSE_ID` | Enable/disable `previous_response_id`                       |
 | `PI_OPENAI_SERVER_COMPACTION_NOTIFY`               | Show UI notifications when features activate                |
 
+### Pi's output reserve is separate
+
+For custom providers such as Isara, Pi's own compaction threshold still decides when this extension runs:
+
+```text
+compaction threshold = physical context window − compaction.reserveTokens
+```
+
+Restoring routed-model support changes **how** compaction runs, not **when** Pi requests it. For a 272,000-token model, the default reserve of 16,384 triggers compaction above 255,616 tokens. A reserve of 40,000 triggers it above 232,000. The larger reserve is optional extra headroom for reasoning-heavy turns; it is not required to enable remote compaction.
+
+`reserveTokens` also sizes Pi's built-in fallback summaries. It does not size the remote compaction artifact or this extension's initial 4,096-token portable summary. The extension's `thresholdRatio` applies to direct OpenAI server-managed requests, not to Isara's Pi-triggered compaction path.
+
+A larger reserve does not fix inaccurate context estimates, failed compaction, or the provider's output clamping against context that will later be replaced by remote history. Under a virtual selection, Pi looks up overrides using the selected virtual model key, for example:
+
+```json
+{
+  "compaction": {
+    "modelOverrides": {
+      "model-switcher/auto": { "reserveTokens": 40000 }
+    }
+  }
+}
+```
+
 ## Troubleshooting
 
 If something goes wrong:
@@ -183,6 +216,7 @@ PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai-codex/gpt-5.6-sol npm run test:liv
 
 - Pi's local JSONL/tree model remains authoritative
 - Opaque remote compaction artifacts are only reused for compatible OpenAI Responses turns
+- Model-id matching identifies likely OpenAI models behind custom providers, but cannot guarantee that a gateway implements compaction V2; unsupported endpoints fall back to Pi's portable summary
 - Switching to a different provider/model falls back to Pi's text-summary portability path
 - Compaction usage/cost is captured in details but not yet folded into Pi's `get_session_stats()` (requires Pi core changes)
 

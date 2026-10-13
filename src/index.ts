@@ -4,7 +4,7 @@
  * Wires together request patching, remote compaction, runtime state
  * reconstruction, session lifecycle cleanup, and provider override registration.
  */
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { buildSessionContext, convertToLlm, type ExtensionAPI, type SessionEntry } from "@earendil-works/pi-coding-agent";
 import type { AgentMessage } from "@earendil-works/pi-agent-core";
 import { isRecord, loadConfig } from "./config.ts";
 import { streamOpenAIResponsesWithPhase2B } from "./custom-stream.ts";
@@ -14,13 +14,12 @@ import {
   extractAssistantResponseId,
   extractResponsesReasoningConfig,
   extractResponsesTextConfig,
-  isOpenAICodexResponsesModel,
-  looksLikeResponsesPayload,
   messageMatchesModel,
   modelKey,
   supportsPreviousResponseId,
   supportsRemoteCompactionModel,
   thinkingLevelToResponsesReasoning,
+  usesExplicitRemoteCompactionHistory,
 } from "./openai.ts";
 import { releaseAllWsSessions, releaseWsSession } from "./openai-ws-stream.ts";
 import {
@@ -29,11 +28,11 @@ import {
   buildToolsPayload,
   callRemoteCompactionEndpoint,
   generateBestEffortLocalSummary,
-  messageToResponseItems,
   messagesToResponseItems,
   normalizeResponseItemsForPrompt,
   reconstructRemoteCompactionStateFromBranch,
 } from "./remote-compaction.ts";
+import { resolvePhysicalModel, resolveRequestModel } from "./routed-model.ts";
 import {
   clearAllContinuationState,
   clearContinuationState,
@@ -69,13 +68,9 @@ function getSessionId(ctx: SessionContextLike): string {
 }
 
 function getBranchMessages(branchEntries: BranchEntry[]): AgentMessage[] {
-  return branchEntries.flatMap((entry) =>
-    entry.type === "message" && entry.message ? [entry.message as AgentMessage] : [],
-  );
-}
-
-function getBranchMessageCount(branchEntries: BranchEntry[]): number {
-  return branchEntries.filter((entry) => entry.type === "message" && Boolean(entry.message)).length;
+  // Raw branches include history already replaced by compaction and recovery
+  // edits. A new remote checkpoint must summarize only finalized context.
+  return buildSessionContext(branchEntries as SessionEntry[]).messages;
 }
 
 function getBranchThinkingLevel(branchEntries: BranchEntry[]): string | undefined {
@@ -121,26 +116,6 @@ function getMatchingRemoteState(
   if (!model) return undefined;
   const remoteState = getRemoteCompactionState(sessionId);
   return remoteState && remoteState.modelKey === modelKey(model) ? remoteState : undefined;
-}
-
-function extendRemoteHistoryIfCompatible(params: {
-  sessionId: string;
-  model: TargetModel | undefined;
-  message: AgentMessage;
-}): void {
-  const remoteState = getMatchingRemoteState(params.sessionId, params.model);
-  if (!remoteState || !params.model) return;
-  if (params.message.role === "assistant" && !messageMatchesModel(params.message, params.model)) {
-    return;
-  }
-
-  const items = messageToResponseItems(params.message);
-  if (items.length === 0) return;
-
-  setRemoteCompactionState(params.sessionId, {
-    ...remoteState,
-    explicitHistory: [...remoteState.explicitHistory, ...items],
-  });
 }
 
 function maybeNotifyRequestFeatures(params: {
@@ -199,30 +174,52 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
     releaseAllWsSessions();
   });
 
+  // Direct OpenAI's custom transport reads replay state before its payload
+  // hook. Refresh it while Pi still has the full canonical request context.
+  pi.on("context", (_event, ctx) => {
+    const sessionId = getSessionId(ctx);
+    // The 0.80.9 peer types predate context_edit entries.
+    const branch = ctx.sessionManager.getBranch() as BranchEntry[];
+    const continuation = getContinuationState(sessionId);
+    if (continuation?.contextEntryId) {
+      const anchor = branch.findIndex((entry) => entry.id === continuation.contextEntryId);
+      if (anchor < 0 || branch.slice(anchor + 1).some((entry) => entry.type === "context_edit" || entry.type === "compaction")) {
+        clearLiveContinuation(sessionId);
+      }
+    }
+    syncRemoteState(ctx);
+  });
+
   pi.on("session_before_compact", async (event, ctx) => {
     const cfg = loadConfig(ctx.cwd);
-    const model = ctx.model;
+    const model = resolvePhysicalModel(ctx);
     if (!cfg.enabled || !model || !supportsRemoteCompactionModel(model)) return undefined;
 
     const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
     if (!auth.ok || !auth.apiKey) return undefined;
+    // Current Pi auth uses null to delete inherited headers.
+    const headers = auth.headers
+      ? Object.fromEntries(Object.entries(auth.headers).filter((entry): entry is [string, string] => typeof entry[1] === "string"))
+      : undefined;
 
     const tools = buildToolsPayload(pi.getAllTools(), pi.getActiveTools());
     const sessionId = getSessionId(ctx);
     const branchEntries = event.branchEntries as BranchEntry[];
+    syncRemoteState(ctx);
     const remoteState = getMatchingRemoteState(sessionId, model);
     const observedRequestShape = getResponsesRequestShapeState(sessionId);
     const fullBranchMessages = getBranchMessages(branchEntries);
     const responseItems = remoteState
       ? remoteState.explicitHistory
-      : messagesToResponseItems(fullBranchMessages);
+      : messagesToResponseItems(convertToLlm(fullBranchMessages));
     const promptResponseItems = normalizeResponseItemsForPrompt(responseItems, model);
     const thinkingLevel = pi.getThinkingLevel();
     const fallbackReasoning = model.reasoning
       ? thinkingLevelToResponsesReasoning(thinkingLevel ?? getBranchThinkingLevel(branchEntries))
       : undefined;
-    const reasoning = observedRequestShape?.reasoning ?? fallbackReasoning;
-    const text = observedRequestShape?.text;
+    const matchingRequestShape = observedRequestShape?.modelKey === modelKey(model) ? observedRequestShape : undefined;
+    const reasoning = matchingRequestShape?.reasoning ?? fallbackReasoning;
+    const text = matchingRequestShape?.text;
 
     const [localResult, remoteResult] = await Promise.allSettled([
       generateBestEffortLocalSummary({
@@ -230,7 +227,7 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
         messages: fullBranchMessages,
         model,
         apiKey: auth.apiKey,
-        headers: auth.headers,
+        headers,
         customInstructions: event.customInstructions,
         signal: event.signal,
         thinkingLevel,
@@ -240,7 +237,7 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
       callRemoteCompactionEndpoint({
         model,
         apiKey: auth.apiKey,
-        headers: auth.headers,
+        headers,
         sessionId,
         input: promptResponseItems,
         instructions: ctx.getSystemPrompt(),
@@ -263,6 +260,9 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
       return undefined;
     }
 
+    if (localResult.status !== "fulfilled" && !event.signal.aborted && ctx.hasUI) {
+      ctx.ui.notify("OpenAI remote compaction succeeded, but its portable text summary failed. Switching to another model may lose summarized context.", "warning");
+    }
     const remoteDetails = buildRemoteCompactionDetails(
       model,
       remoteResult.value.output,
@@ -291,14 +291,13 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
   });
 
   pi.on("message_end", (event, ctx) => {
+    if (event.message.role !== "assistant") return;
     const sessionId = getSessionId(ctx);
-    const model = ctx.model;
-
-    extendRemoteHistoryIfCompatible({
-      sessionId,
-      model,
-      message: event.message,
-    });
+    const model = resolvePhysicalModel(ctx, event.message);
+    const continuation = getContinuationState(sessionId);
+    if (continuation && (!model || !messageMatchesModel(event.message, model) || continuation.modelKey !== modelKey(model))) {
+      clearLiveContinuation(sessionId);
+    }
 
     const cfg = loadConfig(ctx.cwd);
     if (!cfg.enabled || !supportsPreviousResponseId(model, cfg)) return;
@@ -307,11 +306,14 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
     const responseId = extractAssistantResponseId(event.message);
     if (!responseId) return;
 
+    const branch = ctx.sessionManager.getBranch();
     setContinuationState(sessionId, {
       responseId,
       modelKey: modelKey(model),
       updatedAt: Date.now(),
-      contextLength: getBranchMessageCount(ctx.sessionManager.getBranch() as BranchEntry[]),
+      // message_end runs before this assistant is appended to the branch.
+      contextLength: convertToLlm([...getBranchMessages(branch), event.message]).length,
+      contextEntryId: branch.at(-1)?.id,
     });
   });
 
@@ -319,18 +321,22 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
     const cfg = loadConfig(ctx.cwd);
     if (!cfg.enabled) return undefined;
 
-    const model = ctx.model;
-    if (!model || !isRecord(event.payload) || !looksLikeResponsesPayload(event.payload)) return undefined;
-
     const sessionId = getSessionId(ctx);
+    // Rebuild before resolving duplicate model IDs: only a validated native
+    // checkpoint can identify its provider. Include pending tool/user messages.
+    syncRemoteState(ctx);
+    const model = resolveRequestModel(ctx, event.payload, getRemoteCompactionState(sessionId)?.modelKey);
+    if (!model || !isRecord(event.payload)) return undefined;
+
     setResponsesRequestShapeState(sessionId, {
+      modelKey: modelKey(model),
       updatedAt: Date.now(),
       reasoning: extractResponsesReasoningConfig(event.payload),
       text: extractResponsesTextConfig(event.payload),
     });
     const remoteState = getMatchingRemoteState(sessionId, model);
 
-    if (isOpenAICodexResponsesModel(model)) {
+    if (usesExplicitRemoteCompactionHistory(model)) {
       if (!remoteState) return undefined;
       const payload = applyRemoteHistoryPayloadPatch({
         payload: event.payload,
@@ -349,17 +355,16 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
 
     if (!supportsPreviousResponseId(model, cfg)) return undefined;
 
-    const continuation = getContinuationState(sessionId);
-    const previousResponseId =
-      remoteState === undefined && continuation && continuation.modelKey === modelKey(model)
-        ? continuation.responseId
-        : undefined;
-
+    // Only the transport knows whether it sent incremental input. The legacy
+    // WebSocket path sets its own previous_response_id; adding one here to a
+    // full HTTP transcript would send the previous conversation twice.
+    const previousResponseId = typeof event.payload.previous_response_id === "string"
+      ? event.payload.previous_response_id
+      : undefined;
     const payload = applyPayloadPatch({
       payload: event.payload,
       model,
       cfg,
-      previousResponseId,
     });
 
     const features = ["store=true", "context_management"];

@@ -77,6 +77,21 @@ export function isOpenAICodexResponsesModel(model: ModelLike): boolean {
   return host === "chatgpt.com";
 }
 
+const OPENAI_MODEL_ID_PATTERN = /^(?:gpt-|o[1-9](?:-|$)|chatgpt-|codex(?:-|$))/i;
+
+/** Match the canonical model id, including gateway-qualified ids such as openai/gpt-5. */
+export function isOpenAIModelId(value: unknown): boolean {
+  if (typeof value !== "string" || !value.trim()) return false;
+  const unqualifiedId = value.trim().split("/").at(-1) ?? "";
+  return OPENAI_MODEL_ID_PATTERN.test(unqualifiedId);
+}
+
+export function isOpenAIResponsesCompactionModel(model: ModelLike): boolean {
+  if (model.api !== "openai-responses") return false;
+  if (isDirectOpenAIResponsesModel(model)) return true;
+  return isOpenAIModelId(model.id) && typeof model.baseUrl === "string" && model.baseUrl.trim().length > 0;
+}
+
 export function supportsPreviousResponseId(
   model: unknown,
   cfg: Required<ExtensionConfig>,
@@ -88,7 +103,12 @@ export function supportsPreviousResponseId(
 
 export function supportsRemoteCompactionModel(model: unknown): model is ModelLike {
   if (!isOpenAIResponsesModel(model)) return false;
-  return isDirectOpenAIResponsesModel(model) || isOpenAICodexResponsesModel(model);
+  return isOpenAIResponsesCompactionModel(model) || isOpenAICodexResponsesModel(model);
+}
+
+/** Models whose normal provider transport needs an explicit replacement-history payload. */
+export function usesExplicitRemoteCompactionHistory(model: unknown): model is ModelLike {
+  return supportsRemoteCompactionModel(model) && !isDirectOpenAIResponsesModel(model);
 }
 
 export function resolveCompactThreshold(
@@ -156,9 +176,14 @@ export function applyRemoteHistoryPayloadPatch(params: {
   payload: JsonRecord;
   explicitHistory: unknown[];
 }): JsonRecord {
+  // Recent Pi versions put system instructions inside Responses `input`.
+  // Replace conversation history, not the current request's instructions.
+  const instructions = Array.isArray(params.payload.input)
+    ? params.payload.input.filter((item) => isRecord(item) && (item.role === "system" || item.role === "developer"))
+    : [];
   const nextPayload: JsonRecord = {
     ...params.payload,
-    input: params.explicitHistory,
+    input: [...instructions, ...params.explicitHistory],
   };
   delete nextPayload.messages;
   delete nextPayload.previous_response_id;

@@ -16,9 +16,12 @@ export type ContinuationState = {
   modelKey: string;
   updatedAt: number;
   contextLength?: number;
+  /** Branch tip before message_end persists this response. */
+  contextEntryId?: string;
 };
 
 export type ResponsesRequestShapeState = {
+  modelKey: string;
   updatedAt: number;
   reasoning?: ResponsesReasoningConfig;
   text?: ResponsesTextConfig;

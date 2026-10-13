@@ -11,6 +11,21 @@ The validated compaction request uses the normal Responses endpoint with a trail
 
 Validated continuity on both providers includes same-process recall, fork safety, resume/reload, and model-switch round trips. The direct OpenAI suite also includes reduced-plaintext replay; that test recovered a generated secret absent from all visible retained history and from the portable Pi summary.
 
+### Custom-provider model-id validation
+
+A live Pi RPC sub-agent also passed through a multi-model gateway registered as a custom `openai-responses` provider. The provider name was not `openai`; the model id was `gpt-5.6-sol` and carried an explicit gateway `baseUrl`.
+
+A request probe confirmed that compaction:
+
+- used the same gateway `POST /v1/responses` endpoint as ordinary turns, not `/responses/compact`
+- sent `x-codex-beta-features: remote_compaction_v2`
+- sent a trailing `{ "type": "compaction_trigger" }` with `stream: true` and `store: false`
+- received HTTP 200 and persisted `implementation: "responses_compaction_v2"`
+- ended replacement history with an opaque `compaction` item
+- recovered an exact token after compaction even though the portable-summary instructions explicitly redacted it
+
+This validates both custom-provider endpoint selection and explicit replacement-history injection on the following turn. Direct-OpenAI WebSocket and `previous_response_id` behavior remained disabled for the custom provider.
+
 ## Controlled product-defaults benchmark
 
 A retained GPT-5.6 Sol benchmark compared Pi 0.80.9's actual default

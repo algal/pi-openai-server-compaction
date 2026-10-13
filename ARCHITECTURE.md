@@ -40,7 +40,8 @@ In practice, that means keeping two representations of context alive at once:
    - sends the request over the OpenAI Responses WebSocket transport, or
    - falls back to Pi's default HTTP Responses streaming path.
 6. For `openai-codex/*`, the extension mostly leaves the built-in Codex provider transport alone and only injects reconstructed remote-compaction history when needed.
-7. When a compatible assistant message completes, `src/index.ts` records the new `responseId` as continuation state only for the backends that support `previous_response_id`.
+7. For custom `openai-responses` providers exposing a recognized OpenAI model id, the extension retains the provider's normal transport and only injects reconstructed remote-compaction history when needed.
+8. When a compatible assistant message completes, `src/index.ts` records the new `responseId` as continuation state only for the backends that support `previous_response_id`.
 
 ### Compaction turn
 
@@ -179,6 +180,8 @@ The extension intentionally avoids reusing provider-native continuity blindly.
 Important safety rules:
 
 - remote replacement history is only reused for compatible OpenAI/OpenAI Codex Responses models
+- custom and multi-model providers are eligible only when they use `openai-responses` and the canonical model id matches an OpenAI family; mutable display labels are not used
+- custom-provider matching enables only remote compaction and explicit history replay, not direct-OpenAI WebSocket or `previous_response_id` behavior
 - in-memory remote history is only extended while the active model still matches the compaction model
 - reconstructed remote history only replays post-compaction turns whose assistant completions match the compaction model, avoiding cross-model pollution after resume/tree reload
 - live `previous_response_id` state is cleared on key session/model lifecycle boundaries
