@@ -22,7 +22,7 @@
     "codex"
   ],
   "engines": {
-    "node": ">=22"
+    "node": ">=22.19"
   },
   "files": [
     "src",
@@ -38,9 +38,9 @@
     "extensions": ["./src/index.ts"]
   },
   "peerDependencies": {
-    "@earendil-works/pi-coding-agent": ">=0.80.9 <0.81.0",
-    "@earendil-works/pi-ai": ">=0.80.9 <0.81.0",
-    "@earendil-works/pi-agent-core": ">=0.80.9 <0.81.0"
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-agent-core": "*"
   },
   "peerDependenciesMeta": {
     "@earendil-works/pi-coding-agent": { "optional": true },
@@ -50,16 +50,17 @@
   "scripts": {
     "smoke": "node --experimental-strip-types ./scripts/smoke.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "npm run typecheck && npm run smoke",
-    "test:live": "node --experimental-strip-types ./tests/live/openai-compaction-rpc-live.ts"
+    "test": "npm run typecheck && npm run smoke && node --experimental-strip-types --test tests/*.test.mjs",
+    "test:live": "node --experimental-strip-types ./tests/live/openai-compaction-rpc-live.ts",
+    "test:live:tools": "node --experimental-strip-types ./tests/live/tool-access.mjs"
   },
   "dependencies": {
     "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@earendil-works/pi-agent-core": "0.80.9",
-    "@earendil-works/pi-ai": "0.80.9",
-    "@earendil-works/pi-coding-agent": "0.80.9",
+    "@earendil-works/pi-agent-core": "1.4.0",
+    "@earendil-works/pi-ai": "1.4.0",
+    "@earendil-works/pi-coding-agent": "1.4.0",
     "@types/node": "^24.10.0",
     "@types/ws": "^8.18.1",
     "typescript": "^5.9.3"

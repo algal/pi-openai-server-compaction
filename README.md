@@ -42,6 +42,17 @@ https://x.com/alexisgallagher/status/2042396986327060736?s=20 .)
 > **Status:** experimental but live-tested against real Pi + real OpenAI backends.
 > Recommended rollout: install project-local first, use for a week, keep rollback easy.
 
+## Pi 1.4 compatibility
+
+This fork preserves Pi 1.4's inline tool declarations and configuration when
+replaying native compaction history. Earlier versions replaced the entire input,
+which could leave the model with tool names in its instructions but no callable
+tools. The earlier repair for extension/context messages is retained.
+
+See [validation results](VALIDATION.md#pi-14-tool-availability-repair) for current
+Pi 1.4 acceptance and its limits. Historical provider and recall results below
+are not a fresh full-suite certification.
+
 ## Support matrix
 
 | Provider/model family | Remote compaction           | `previous_response_id` continuity | Custom WS stream                 | Live-tested |
@@ -74,8 +85,8 @@ pi -e ./src/index.ts --model openai/gpt-5.6-luna
 
 ## Requirements
 
-- Node `>= 22`
-- Pi `>=0.80.9 <0.81.0`
+- Node `>=22.19`
+- Pi `1.4.x` (pinned development versions are in [package.json](package.json))
 - Auth/config for the model you want to use must already work in Pi
 - A supported OpenAI Responses model, e.g. `openai/gpt-5.6-sol` or `openai-codex/gpt-5.6-sol`
 
@@ -110,6 +121,11 @@ The compaction request mirrors the shape of surrounding normal requests (reasoni
 The extension clears live continuation state on: session start/reload/resume, switch/fork, tree navigation, compaction completion, model selection, and shutdown.
 
 Remote compaction history is only replayed for compatible models. Cross-model turns are filtered from reconstructed replay history to prevent contamination after resume or tree navigation.
+
+History replacement retains Pi-generated tool declarations, instructions,
+availability notices, and reasoning configuration. JSON functions and grammar
+tools retain their replay format and tool namespaces. See the
+[remote-history contract](specs/remote-history.md).
 
 ## Data handling
 
@@ -161,11 +177,27 @@ If something goes wrong:
 
 ## Testing
 
-Smoke test (offline, verifies imports and key algorithms):
+Install the locked development dependencies and run all offline checks:
 
 ```bash
-npm run smoke
+npm ci --ignore-scripts
+npm test
 ```
+
+No provider credentials are needed. See the
+[test plan](TESTPLAN.md#pi-14-regression-checks) for offline regression coverage.
+
+Run the bounded live tool-access regression with existing Codex authentication:
+
+```bash
+npm run test:live:tools
+```
+
+It uses synthetic context and isolated sessions, not your project or existing
+conversations. See the [test plan](TESTPLAN.md#pi-14-regression-checks) for the
+request budget, timeout, coverage, and retained evidence.
+The default model is `openai-codex/gpt-6.1-sol`; override it with
+`PI_OPENAI_SERVER_COMPACTION_TEST_MODEL`.
 
 Live end-to-end test (requires working Pi + OpenAI auth):
 
@@ -201,6 +233,8 @@ PI_OPENAI_SERVER_COMPACTION_TEST_MODEL=openai-codex/gpt-5.6-sol npm run test:liv
 | `src/stream-message-shared.ts`             | Shared assistant message builders                                 |
 | `tests/live/openai-compaction-rpc-live.ts` | Live Pi RPC regression test                                       |
 | `scripts/smoke.mjs`                        | Offline smoke test with peer-package bootstrapping                |
+| `tests/tool-declarations.test.mjs`         | Native request and transport regression tests                     |
+| `tests/live/tool-access.mjs`               | Bounded live post-compaction tool and resume acceptance           |
 | `benchmarks/product-defaults/`             | Current default-vs-default benchmark, retained evidence, and report |
 | `benchmarks/native-vs-text/`               | Earlier matched-cap benchmark, retained with a correction          |
 | `ARCHITECTURE.md`                          | Design and control-flow documentation                             |

@@ -152,13 +152,30 @@ export function thinkingLevelToResponsesReasoning(
   return undefined;
 }
 
+function isRequestConfigurationItem(item: unknown): boolean {
+  if (!isRecord(item)) return false;
+  if (item.role === "developer" || item.role === "system") return true;
+  if (item.type === "additional_tools" || item.type === "configuration_update") return true;
+  // Pi synthesizes these paired items for transports that support tool additions
+  // through tool search rather than additional_tools. They are declarations, not turns.
+  return (item.type === "tool_search_call" || item.type === "tool_search_output") &&
+    typeof item.call_id === "string" && item.call_id.startsWith("pi_tool_load_");
+}
+
+// [impl->req~remote-history.request-configuration~1]
+// [impl->req~remote-history.nonmutating-replacement~1]
 export function applyRemoteHistoryPayloadPatch(params: {
   payload: JsonRecord;
   explicitHistory: unknown[];
 }): JsonRecord {
+  // Pi 1.4 carries prompt/tool changes inside input. Replace only conversation
+  // history; retain its request-local configuration in the order Pi generated it.
+  const configuration = Array.isArray(params.payload.input)
+    ? params.payload.input.filter(isRequestConfigurationItem)
+    : [];
   const nextPayload: JsonRecord = {
     ...params.payload,
-    input: params.explicitHistory,
+    input: [...configuration, ...params.explicitHistory],
   };
   delete nextPayload.messages;
   delete nextPayload.previous_response_id;

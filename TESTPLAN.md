@@ -13,6 +13,29 @@
    - session resume/reload
    - cost totals on WS path are non-zero and plausible
 
+## Pi 1.4 regression checks
+
+See [README testing](README.md#testing) for dependency installation, commands,
+and live model selection. Run the offline checks first; they cover typechecking,
+imports, smoke regressions, the real Codex request builder and extension hooks,
+resume/repeated compaction, late tool loading/removal, synthetic tool-search
+declarations, configuration preservation, grammar/namespaced replay, HTTP fallback,
+and a local WebSocket.
+The WebSocket tests cover native Lark/regex declarations during warm-up and normal
+requests, streamed custom/JSON calls with namespaces and item IDs, continuation,
+late tool updates, restored compaction, usage accounting, and failure/abort paths.
+An isolated SDK tool loop against a local HTTP server proves ordinary request 21
+is not transmitted even when extension hook exceptions are swallowed, and that
+reopening the session does not reset the budget.
+
+The live tool-access check requires existing provider authentication. It uses a
+temporary synthetic project, executes JSON and grammar tools, registers a new tool
+after native compaction, compacts twice, reopens the session, and checks execution
+receipts. A portable-only summary fallback fails this acceptance. A shared budget
+limits ordinary requests to 20 across both sessions at the agent payload boundary,
+before extension dispatch or transmission. The run has a five-minute timeout and
+retains local evidence without modifying existing sessions or global configuration.
+
 ## Suggested manual tests
 
 ### 1. Baseline supported turn

@@ -54,6 +54,27 @@ In practice, that means keeping two representations of context alive at once:
    - `CompactionEntry.details.remoteCompaction`
 6. Pi still keeps a text summary so the session remains understandable and portable.
 
+### Request-local configuration
+
+Pi 1.4 represents prompts and tool changes in transcript system messages. Its
+Responses transports can emit `additional_tools`, synthetic client-side tool-search
+declarations, and `configuration_update` items inside `input`, rather than only
+using top-level `tools`.
+
+`applyRemoteHistoryPayloadPatch` owns history substitution for the built-in Codex
+transport and direct OpenAI HTTP fallback. It retains Pi-generated request
+configuration in order, then supplies the native compacted conversation history.
+It does not reconstruct schemas or mutate either caller input. The custom
+WebSocket path reads the effective prompt and tool set from Pi's transcript
+helpers rather than the removed provider-context shorthand. It uses Pi 1.4's native
+tool converter for both warm-up and ordinary requests, and its shared Responses
+stream decoder for grammar inputs, namespaces, item IDs, and streamed content.
+
+Custom tool calls are identified by the Responses `ctc_` item ID preserved in Pi's
+call ID. Replay keeps their raw string inputs, corresponding output type, and
+namespaces. JSON function calls remain JSON. The module contract lives in
+[remote history](specs/remote-history.md).
+
 ### Post-compaction continuation
 
 For later direct OpenAI Responses turns, the extension prefers:
@@ -61,6 +82,10 @@ For later direct OpenAI Responses turns, the extension prefers:
 - the persisted/reconstructed remote replacement history, when model-compatible
 - otherwise safe live continuation using `previous_response_id`
 - otherwise ordinary full-input replay / Pi fallback behavior
+
+Before each model request and compaction, replay state is reconstructed from the
+active branch. This includes persisted custom context additions even when Pi does
+not dispatch an extension `message_end` event.
 
 ## Persisted state vs runtime state
 
@@ -99,7 +124,7 @@ Responsibilities:
 - patch outgoing provider payloads
 - hook into Pi compaction lifecycle
 - merge local and remote compaction results
-- reconstruct remote state on session start/tree/compaction
+- reconstruct remote state on session start/tree/compaction and before requests or further compaction
 - clear ephemeral state on switch/fork/tree/model/shutdown
 
 If you want to understand the extension as a whole, start here.
@@ -179,7 +204,7 @@ The extension intentionally avoids reusing provider-native continuity blindly.
 Important safety rules:
 
 - remote replacement history is only reused for compatible OpenAI/OpenAI Codex Responses models
-- in-memory remote history is only extended while the active model still matches the compaction model
+- remote history is only selected while the active model matches the compaction model
 - reconstructed remote history only replays post-compaction turns whose assistant completions match the compaction model, avoiding cross-model pollution after resume/tree reload
 - live `previous_response_id` state is cleared on key session/model lifecycle boundaries
 - HTTP fallback remains available if the WS path is unavailable or unsafe
@@ -202,11 +227,10 @@ So the package is intentionally hybrid:
 
 ## Testing strategy
 
-### Runtime smoke
+### Pi 1.4 regression checks
 
-- `npm run smoke`
-
-Verifies imports/loadability.
+See the [test plan](TESTPLAN.md#pi-14-regression-checks) for offline coverage and
+bounded live tool-access acceptance, and [README](README.md#testing) for commands.
 
 ### Live end-to-end test
 

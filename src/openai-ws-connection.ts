@@ -5,6 +5,7 @@
  * latest `previous_response_id` learned from completed responses.
  */
 import { EventEmitter } from "node:events";
+import type { ResponseOutputItem, Tool } from "openai/resources/responses/responses.js";
 
 export interface ResponseObject {
   id: string;
@@ -31,29 +32,7 @@ export interface UsageInfo {
 
 export type OpenAIResponsesAssistantPhase = "commentary" | "final_answer";
 
-export type OutputItem =
-  | {
-      type: "message";
-      id: string;
-      role: "assistant";
-      content: Array<{ type: "output_text"; text: string }>;
-      phase?: OpenAIResponsesAssistantPhase;
-      status?: "in_progress" | "completed";
-    }
-  | {
-      type: "function_call";
-      id: string;
-      call_id: string;
-      name: string;
-      arguments: string;
-      status?: "in_progress" | "completed";
-    }
-  | {
-      type: "reasoning";
-      id: string;
-      content?: string;
-      summary?: string;
-    };
+export type OutputItem = ResponseOutputItem;
 
 export function isResponseObject(value: unknown): value is ResponseObject {
   if (!value || typeof value !== "object") return false;
@@ -119,13 +98,7 @@ export type ToolChoice =
   | "required"
   | { type: "function"; function: { name: string } };
 
-export interface FunctionToolDefinition {
-  type: "function";
-  name: string;
-  description?: string;
-  parameters?: Record<string, unknown>;
-  strict?: boolean;
-}
+export type ResponseToolDefinition = Tool;
 
 export interface ResponseCreateEvent {
   type: "response.create";
@@ -134,7 +107,7 @@ export interface ResponseCreateEvent {
   stream?: boolean;
   input?: string | InputItem[];
   instructions?: string;
-  tools?: FunctionToolDefinition[];
+  tools?: ResponseToolDefinition[];
   tool_choice?: ToolChoice;
   context_management?: unknown;
   previous_response_id?: string;
@@ -235,7 +208,7 @@ export class OpenAIWebSocketManager extends EventEmitter {
     this.ws = null;
   }
 
-  warmUp(params: { model: string; tools?: FunctionToolDefinition[]; instructions?: string }): void {
+  warmUp(params: { model: string; tools?: ResponseToolDefinition[]; instructions?: string }): void {
     this.send({
       type: "response.create",
       generate: false,

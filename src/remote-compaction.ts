@@ -19,7 +19,7 @@ import {
   serializeConversation,
   type CompactionResult,
 } from "@earendil-works/pi-coding-agent";
-import { calculateCost, type Model, type Usage } from "@earendil-works/pi-ai";
+import { calculateCost, type Model, type ToolCall, type Usage } from "@earendil-works/pi-ai";
 import { complete } from "@earendil-works/pi-ai/compat";
 import { isRecord } from "./config.ts";
 import {
@@ -355,6 +355,49 @@ function buildPortableSummaryPrompt(conversation: string, customInstructions?: s
   return `Summarize this conversation for future continuation in pi. Preserve goals, decisions, important facts, file paths, open questions, and next steps. Be concise but include information needed to continue work.${instructionSuffix}\n\n<conversation>\n${conversation}\n</conversation>`;
 }
 
+/**
+ * Pi carries four message kinds that are not LLM roles - `custom` (context injected by
+ * extensions via `pi.sendMessage`), `bashExecution`, `branchSummary` and
+ * `compactionSummary` - and flattens each one into a user-role context message before it
+ * reaches the provider (`convertToLlm` in `@earendil-works/pi-coding-agent`).
+ *
+ * The replacement history built from these items *replaces* Pi's own request input once a
+ * remote compaction exists, so a message that is not converted here is not merely missing
+ * from a cache: it is dropped from the request Pi intended to send. Mirror Pi's flattening
+ * so the replacement history keeps everything Pi would have sent.
+ */
+function nonLlmMessageToUserContent(message: AgentMessage): ResponseContentItem[] {
+  // Delegate to Pi's own flattening rather than re-deriving it, so this cannot drift from
+  // what Pi actually sends when Pi adds or changes a message kind.
+  const [flattened] = convertToLlm([message]);
+  if (!flattened || flattened.role !== "user") return [];
+  return contentToResponseContentItems(flattened.content);
+}
+
+function isCustomToolCallId(id: string): boolean {
+  // Pi preserves Responses item IDs after the call ID: call_*|ctc_* for
+  // grammar tools, call_*|fc_* for JSON functions. This survives session reload.
+  return id.split("|", 2)[1]?.startsWith("ctc_") === true;
+}
+
+// [impl->req~remote-history.tool-replay~1]
+function toolCallToResponseItem(block: ToolCall): ResponseItem {
+  const base = {
+    name: block.name,
+    call_id: block.id.split("|", 1)[0],
+    ...(block.namespace !== undefined ? { namespace: block.namespace } : {}),
+  };
+  if (isCustomToolCallId(block.id)) {
+    // Pi's grammar sampling contract requires exactly one string property.
+    const values = Object.values(block.arguments);
+    if (values.length !== 1 || typeof values[0] !== "string") {
+      throw new Error(`Invalid custom-tool input for ${block.name}: expected one string property.`);
+    }
+    return { type: "custom_tool_call", ...base, input: values[0] };
+  }
+  return { type: "function_call", ...base, arguments: JSON.stringify(block.arguments ?? {}) };
+}
+
 export function messageToResponseItems(message: AgentMessage): ResponseItem[] {
   const items: ResponseItem[] = [];
 
@@ -398,13 +441,7 @@ export function messageToResponseItems(message: AgentMessage): ResponseItem[] {
       if (block.type !== "toolCall") continue;
 
       flushText();
-      const callId = typeof block.id === "string" ? block.id.split("|", 1)[0] : block.id;
-      items.push({
-        type: "function_call",
-        name: block.name,
-        call_id: typeof callId === "string" ? callId : String(callId),
-        arguments: JSON.stringify(block.arguments ?? {}),
-      });
+      items.push(toolCallToResponseItem(block));
     }
 
     flushText();
@@ -413,17 +450,27 @@ export function messageToResponseItems(message: AgentMessage): ResponseItem[] {
 
   if (message.role === "toolResult") {
     items.push({
-      type: "function_call_output",
+      type: isCustomToolCallId(message.toolCallId) ? "custom_tool_call_output" : "function_call_output",
       call_id: message.toolCallId.split("|", 1)[0],
       output: toolResultContentToOutput(message.content),
     });
+    return items;
+  }
+
+  const flattened = nonLlmMessageToUserContent(message);
+  if (flattened.length > 0) {
+    items.push({ type: "message", role: "user", content: flattened });
   }
 
   return items;
 }
 
-export function messagesToResponseItems(messages: AgentMessage[]): ResponseItem[] {
-  return messages.flatMap((message) => messageToResponseItems(message));
+export function messagesToResponseItems(
+  messages: AgentMessage[],
+  model?: { input?: readonly unknown[] },
+): ResponseItem[] {
+  const items = messages.flatMap((message) => messageToResponseItems(message));
+  return model ? stripImagesWhenUnsupported(items, model) : items;
 }
 
 function cloneResponseItem(item: ResponseItem): ResponseItem {
@@ -1023,8 +1070,44 @@ function assistantMessageMatchesModelKey(
 ): boolean {
   const target = parseModelKeyParts(targetModelKey);
   if (!target) return false;
-  if (!isRecord(message)) return false;
+  if (message.role !== "assistant") return false;
   return message.provider === target.provider && message.model === target.id;
+}
+
+/**
+ * Mirror of `sessionEntryToContextMessages` in `@earendil-works/pi-coding-agent` for the
+ * entry kinds that carry LLM context. Extension messages are stored as `custom_message`
+ * entries rather than `message` entries, so a branch walk that only looks at
+ * `entry.type === "message"` silently loses them.
+ */
+export function branchEntryToContextMessage(entry: {
+  type: string;
+  message?: unknown;
+  [key: string]: unknown;
+}): AgentMessage | undefined {
+  if (entry.type === "message") return entry.message as AgentMessage | undefined;
+
+  if (entry.type === "custom_message") {
+    return {
+      role: "custom",
+      customType: String(entry.customType ?? ""),
+      content: entry.content,
+      display: entry.display !== false,
+      details: entry.details,
+      timestamp: Date.now(),
+    } as unknown as AgentMessage;
+  }
+
+  if (entry.type === "branch_summary" && typeof entry.summary === "string" && entry.summary) {
+    return {
+      role: "branchSummary",
+      summary: entry.summary,
+      fromId: String(entry.fromId ?? ""),
+      timestamp: Date.now(),
+    } as unknown as AgentMessage;
+  }
+
+  return undefined;
 }
 
 export function reconstructRemoteCompactionStateFromBranch(params: {
@@ -1047,13 +1130,14 @@ export function reconstructRemoteCompactionStateFromBranch(params: {
   let pendingTurnItems: ResponseItem[] = [];
 
   for (const entry of params.branchEntries.slice(latestCompactionIndex + 1)) {
-    if (entry.type !== "message" || !entry.message) continue;
+    const message = branchEntryToContextMessage(entry);
+    if (!message) continue;
 
-    const items = messageToResponseItems(entry.message);
+    const items = messageToResponseItems(message);
     if (items.length === 0) continue;
 
-    if (entry.message.role === "assistant") {
-      if (assistantMessageMatchesModelKey(entry.message, latestDetails.modelKey)) {
+    if (message.role === "assistant") {
+      if (assistantMessageMatchesModelKey(message, latestDetails.modelKey)) {
         trailingMessages.push(...pendingTurnItems, ...items);
       }
       pendingTurnItems = [];
@@ -1062,6 +1146,11 @@ export function reconstructRemoteCompactionStateFromBranch(params: {
 
     pendingTurnItems.push(...items);
   }
+
+  // A turn that has not been answered yet - the common shape when a session is resumed or
+  // a branch is opened while the newest entry is still a user or extension message - must
+  // still reach the provider. Without this flush those items are buffered and discarded.
+  trailingMessages.push(...pendingTurnItems);
 
   return {
     compactionEntryId: latestCompactionEntryId,
