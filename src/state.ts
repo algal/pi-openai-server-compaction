@@ -16,6 +16,7 @@ export type ContinuationState = {
   modelKey: string;
   updatedAt: number;
   contextLength?: number;
+  transport?: "websocket" | "http";
 };
 
 export type ResponsesRequestShapeState = {

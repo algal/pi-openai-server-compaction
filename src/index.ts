@@ -75,7 +75,8 @@ function getBranchMessages(branchEntries: BranchEntry[]): AgentMessage[] {
 }
 
 function getBranchMessageCount(branchEntries: BranchEntry[]): number {
-  return branchEntries.filter((entry) => entry.type === "message" && Boolean(entry.message)).length;
+  // Match the non-system transcript used when slicing HTTP continuation input.
+  return getBranchMessages(branchEntries).filter((message) => (message as { role: string }).role !== "system").length;
 }
 
 function getBranchThinkingLevel(branchEntries: BranchEntry[]): string | undefined {
@@ -307,11 +308,15 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
     const responseId = extractAssistantResponseId(event.message);
     if (!responseId) return;
 
+    const previous = getContinuationState(sessionId);
     setContinuationState(sessionId, {
       responseId,
+      transport: previous?.responseId === responseId ? previous.transport : "http",
       modelKey: modelKey(model),
       updatedAt: Date.now(),
-      contextLength: getBranchMessageCount(ctx.sessionManager.getBranch() as BranchEntry[]),
+      // Pi emits message_end before appending this assistant to the branch.
+      // The response ID already represents its output, so skip it on continuation.
+      contextLength: getBranchMessageCount(ctx.sessionManager.getBranch() as BranchEntry[]) + 1,
     });
   });
 
@@ -351,7 +356,7 @@ export default function openaiServerCompactionExtension(pi: ExtensionAPI) {
 
     const continuation = getContinuationState(sessionId);
     const previousResponseId =
-      remoteState === undefined && continuation && continuation.modelKey === modelKey(model)
+      remoteState === undefined && continuation && continuation.transport !== "websocket" && continuation.modelKey === modelKey(model)
         ? continuation.responseId
         : undefined;
 

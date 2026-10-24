@@ -193,6 +193,10 @@ export class OpenAIWebSocketManager extends EventEmitter {
     return this._previousResponseId;
   }
 
+  clearPreviousResponseId(): void {
+    this._previousResponseId = null;
+  }
+
   async connect(apiKey: string): Promise<void> {
     this.apiKey = apiKey;
     this.closed = false;
@@ -220,6 +224,7 @@ export class OpenAIWebSocketManager extends EventEmitter {
 
   close(): void {
     this.closed = true;
+    this.clearPreviousResponseId();
     this.cancelRetryTimer();
     if (!this.ws) return;
     this.ws.removeAllListeners?.();
@@ -239,6 +244,8 @@ export class OpenAIWebSocketManager extends EventEmitter {
     this.send({
       type: "response.create",
       generate: false,
+      store: false,
+      input: [],
       model: params.model,
       ...(params.tools ? { tools: params.tools } : {}),
       ...(params.instructions ? { instructions: params.instructions } : {}),
@@ -297,6 +304,7 @@ export class OpenAIWebSocketManager extends EventEmitter {
       };
 
       const onOpen = () => {
+        this.clearPreviousResponseId();
         this.retryCount = 0;
         this.cancelRetryTimer();
         finishResolve();
@@ -309,7 +317,10 @@ export class OpenAIWebSocketManager extends EventEmitter {
       };
 
       const onClose = (code: number, reason: Buffer | string) => {
-        if (this.ws === socket) this.ws = null;
+        if (this.ws === socket) {
+          this.ws = null;
+          this.clearPreviousResponseId();
+        }
         const text = typeof reason === "string" ? reason : reason.toString();
         this.emit("close", code, text);
         if (!settled) {

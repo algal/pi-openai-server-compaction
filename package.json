@@ -50,8 +50,9 @@
   "scripts": {
     "smoke": "node --experimental-strip-types ./scripts/smoke.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "npm run typecheck && npm run smoke",
-    "test:live": "node --experimental-strip-types ./tests/live/openai-compaction-rpc-live.ts"
+    "test": "npm run typecheck && npm run smoke && npm run test:ws",
+    "test:live": "node --experimental-strip-types ./tests/live/openai-compaction-rpc-live.ts",
+    "test:ws": "node --experimental-strip-types ./scripts/websocket-regression.mjs && node --experimental-strip-types ./scripts/websocket-continuation-regression.mjs"
   },
   "dependencies": {
     "ws": "^8.18.0"

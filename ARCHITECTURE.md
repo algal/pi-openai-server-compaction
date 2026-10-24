@@ -31,10 +31,7 @@ In practice, that means keeping two representations of context alive at once:
 
 1. Pi prepares a provider request.
 2. `src/index.ts` handles `before_provider_request`.
-3. For direct `openai/*`, `src/openai.ts` patches the payload with:
-   - `store: true`
-   - `context_management`
-   - maybe `previous_response_id`
+3. For direct `openai/*`, `src/openai.ts` applies the shared payload patch; the transport applies its final constraints after hooks. See the README's [transport behavior](README.md#what-it-does) and [storage policy](README.md#data-handling).
 4. For direct `openai/*`, the registered provider override in `src/custom-stream.ts` chooses the custom WS-backed stream.
 5. `src/openai-ws-stream.ts` either:
    - sends the request over the OpenAI Responses WebSocket transport, or

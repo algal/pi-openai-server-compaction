@@ -3,9 +3,8 @@
 ## Goals
 
 1. Verify supported OpenAI-compatible Responses sessions use the expected continuity path:
-   - `store: true`
-   - `context_management`
-   - `previous_response_id` when safe
+   - the transport-specific payload and continuation behavior in [What it does](README.md#what-it-does)
+   - the [storage policy](README.md#data-handling)
    - `/v1/responses` with a trailing `compaction_trigger` during Pi compaction
 2. Verify Pi remains usable:
    - `/model`

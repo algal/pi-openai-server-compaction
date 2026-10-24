@@ -117,7 +117,7 @@ export function applyPayloadPatch(params: {
 }): JsonRecord {
   const nextPayload: JsonRecord = { ...params.payload };
 
-  if (supportsStore(params.model)) {
+  if (supportsStore(params.model) && nextPayload.store === undefined) {
     nextPayload.store = true;
   }
 

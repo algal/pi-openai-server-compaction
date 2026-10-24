@@ -50,6 +50,11 @@ https://x.com/alexisgallagher/status/2042396986327060736?s=20 .)
 | `openai-codex/*`      | Yes                         | No (built-in transport retained)  | No (built-in transport retained) | Yes         |
 | Azure                 | Partial (opt-in via config) | Partial                           | No                               | No          |
 
+Remote compaction also depends on the authentication channel's capabilities.
+See [validation](VALIDATION.md) for channel-specific results and limitations.
+A successful portable text summary is not evidence
+that a remote artifact was produced.
+
 ## Install
 
 Project-local (recommended):
@@ -88,9 +93,15 @@ On compaction, the extension requests Responses compaction v2 through `/v1/respo
 
 For direct `openai/*` models between compactions, the extension also:
 
-- Patches requests with `store: true` and `context_management`
+- Adds `context_management` for HTTP requests, with storage behavior described under [Data handling](#data-handling)
 - Uses `previous_response_id` for live continuation when safe
 - Provides a WebSocket-backed transport path with HTTP fallback
+
+The WebSocket send boundary enforces the [storage policy](#data-handling) and removes the HTTP
+`context_management` patch after payload hooks. WebSocket continuation IDs are scoped to
+the current socket and are excluded from HTTP fallback, which can still use valid
+HTTP continuation IDs. A rejected WebSocket ID is retried once on a fresh socket with full
+history, only before output begins; partial text or tool output is never replayed.
 
 For `openai-codex/*` models, the extension preserves the built-in Codex transport and only injects reconstructed remote compaction history after compaction boundaries.
 
@@ -115,7 +126,7 @@ Remote compaction history is only replayed for compatible models. Cross-model tu
 
 Users should be aware:
 
-- For direct `openai/*` models, the extension sets `store: true` on requests, meaning OpenAI retains conversation data server-side
+- For direct `openai/*` HTTP requests, requests without an explicit storage setting default to `store: true`, meaning OpenAI retains conversation data server-side. An explicit `store: false` is preserved; WebSocket requests always use `store: false`
 - Conversation context is sent to OpenAI's Responses compaction protocol
 - Returned opaque compaction artifacts are stored in Pi's local session JSONL
 - These artifacts are provider-native and not human-readable

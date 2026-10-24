@@ -1,8 +1,91 @@
 # Validation
 
-## Current Responses compaction v2 validation
+## Pipeline-head Luna verification — 2026-10-24
 
-The full live Pi RPC suite passes with both:
+Tested revision: `ca941e06f11a21e7e4ec82fa4573ef09976c068f`, using
+Pi 1.2.0 and `gpt-6-luna` with high reasoning. Both isolated lifecycle
+scripts exited 0. Existing credentials were supplied through runtime provider
+registration, without refresh, persistent import, or global configuration changes.
+
+- **Codex:** the remote trigger returned HTTP 200 and a persisted encrypted
+  `responses_compaction_v2` artifact. The codename was absent from the portable
+  summary and retained plaintext, yet post-compaction recall succeeded. The
+  persisted session independently confirmed a subsequent real `read` tool result;
+  a new process recovered both the codename and file sentinel.
+- **Direct OpenAI WebSocket:** HTTP 101, streamed text with empty terminal output,
+  a real `read` call, injected invalid-ID rejection followed by fresh-socket
+  full-history replay, and saved-session process resume all passed.
+
+The direct channel's previously observed trigger rejection was not retried.
+Codex artifact evidence exercises its built-in transport and does not establish
+custom WebSocket continuity across remote compaction. This focused test phase
+did not run the full suite, static analysis, or delivery phases.
+
+Local evidence is retained under
+`/Users/stan/.no-mistakes/evidence/01M5P36SF92SVJE654BS7CGH4T/round4/`:
+`result.json`, each channel's `lifecycle.log` and isolated session files,
+plus Codex `wire-structure.jsonl`, `compact-result.json`, and
+`post-compaction-tool-proof.json`. These are local evidence, not bundled PR assets.
+
+## WebSocket repair validation — 2026-10-24
+
+These checks used Node 24.20.0 and Pi CLI 1.2.0 in isolated sessions with only
+this checkout's extension loaded. The declared Pi 0.80.9 development dependencies
+were retained for `npm test`; this change does not claim a complete Pi 1.x migration.
+
+**Direct OpenAI, `openai/gpt-6-luna`, high reasoning, existing subscription-sharing OAuth:**
+
+- HTTP 101 WebSocket upgrade with `store: false`, streamed text and a persisted
+  final reply, including terminal responses whose `output` array was empty.
+- A real `read` tool round trip. Injecting an invalid `previous_response_id`
+  produced a real backend rejection, then a fresh authenticated connection and
+  successful full-history replay without an assistant error.
+- Saved-session resume in a new Pi process preserved the test codename and file
+  contents. This direct-provider resume check did not follow remote compaction.
+- Remote compaction was **not supported on this tested channel**: a minimal
+  request with one user message returned HTTP 200; adding only the trailing
+  `compaction_trigger` returned HTTP 400 with
+  `subscription_sharing_unsupported_capability`. The full lifecycle attempt
+  returned only a portable text summary, which the test correctly rejected as
+  remote-compaction evidence.
+
+**Codex, `openai-codex/gpt-6-luna`, high reasoning, existing Codex client login:**
+
+- A separate isolated run used the existing same-account access token through
+  Pi's supported runtime provider registration. No login, credential refresh,
+  persistent import, global configuration change, or installed-extension change
+  was performed.
+- The request to `https://chatgpt.com/backend-api/codex/responses` returned HTTP
+  200 and an encrypted `compaction` item. The session persisted
+  `details.remoteCompaction.implementation: "responses_compaction_v2"`.
+- The exact test codename was absent from both the portable text summary and
+  retained plaintext history. The first post-compaction answer recovered it.
+- A subsequent real `read` tool round trip returned the file sentinel and
+  codename; a new Pi process resumed the saved session and recalled both.
+
+The Codex run exercises the built-in Codex transport and this extension's remote
+compaction/replay path. It does **not** establish that the direct OpenAI OAuth
+channel accepts triggers or that the custom WebSocket path has passed a remote
+compaction boundary on that channel.
+
+**Automated regression checks:** `npm test` passes typechecking, smoke tests,
+the output/context checks in `scripts/websocket-regression.mjs` and the local
+continuation scenarios in `scripts/websocket-continuation-regression.mjs`.
+These cover explicit no-store handling, streamed text/tool item recovery,
+nested errors, modern/legacy context adaptation, warmup input, same-socket
+continuation, explicit/automatic reconnect, rejected-ID recovery with and without
+socket close, bounded retry, no retry after text/tool output, and exactly one
+logical stream start and terminal event. A new stream-lifecycle assertion failed
+before its fix (`2 !== 1` starts during recovery), then passed. Earlier output
+and transport-boundary tests also failed against upstream main before applying
+the repair. Local fixtures do not substitute for the separate live results above.
+
+Azure, maximum reasoning effort, a full Pi 1.x SDK migration, and direct-provider
+post-remote-compaction continuity were not validated by this repair.
+
+## Earlier Responses compaction v2 validation
+
+The earlier full live Pi RPC suite passed with both:
 
 - `openai/gpt-5.6-luna` through the direct OpenAI Responses API
 - `openai-codex/gpt-5.6-sol` through the ChatGPT Codex subscription backend
